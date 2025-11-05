@@ -1,6 +1,7 @@
 import { CameraControls } from "@react-three/drei";
 import EnvironmentSetup from "./EnvironmentSetup";
 import Shards from "./Shards";
+import BackgroundSphere from "./BackgroundSphere";
 
 export default function Scene() {
     return (
@@ -13,6 +14,8 @@ export default function Scene() {
 
             <CameraControls makeDefault />
             <Shards />
+            <BackgroundSphere />
+
         </>
     )
 }
