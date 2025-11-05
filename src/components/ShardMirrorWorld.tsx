@@ -1,8 +1,9 @@
 // ShardMirrorWorld.tsx
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { useMemo } from 'react'
-import { shaderMaterial } from '@react-three/drei'
+import { useMemo, useEffect, useRef } from 'react'
+import { useControls } from 'leva'
+import CustomShaderMaterial from 'three-custom-shader-material/vanilla'
 
 const vert = /* glsl */`
   varying vec3 vWpos;
@@ -11,7 +12,7 @@ const vert = /* glsl */`
     vec4 wp = modelMatrix * vec4(position,1.0);
     vWpos = wp.xyz;
     vWnorml = normalize(mat3(modelMatrix) * normal);
-    gl_Position = projectionMatrix * viewMatrix * wp;
+    // csm_Position = projectionMatrix * viewMatrix * wp;
   }
 `;
 
@@ -34,8 +35,8 @@ const frag = /* glsl */`
 
   void main() {
     vec3 view = normalize(uCamPos - vWpos);
-    vec3 normal = normalize(vWnorml);
-    vec3 refect = reflect(-view, normal);
+    vec3 nml = normalize(vWnorml);
+    vec3 refect = reflect(-view, nml);
 
     float denom = dot(refect, uN);
 
@@ -64,26 +65,10 @@ const frag = /* glsl */`
     float alpha = denomFade * edgeFade * col.a;
 
     
-    float fres = pow(1.0 - max(dot(normal, view), 0.0), uFresPow) * uFresGain;
-    gl_FragColor = vec4(col.rgb + fres, 1.0);
-    // gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    float fres = pow(1.0 - max(dot(nml, view), 0.0), uFresPow) * uFresGain;
+    csm_DiffuseColor = vec4(col.rgb + fres, 1.0);
   }
 `;
-
-const ShardMirrorMat = shaderMaterial(
-  {
-    uCamPos: new THREE.Vector3(),
-    uCenter: new THREE.Vector3(),
-    uU: new THREE.Vector3(1, 0, 0),
-    uV: new THREE.Vector3(0, 1, 0),
-    uN: new THREE.Vector3(0, 0, 1),
-    uSize: new THREE.Vector2(2, 2),
-    uMap: null,
-    uFresPow: 4.0,
-    uFresGain: 0.08,
-  },
-  vert, frag
-);
 
 type Props = {
   planeRef: React.RefObject<THREE.Object3D | null>; // the world-anchored helper
@@ -93,20 +78,101 @@ type Props = {
 export function ShardMirrorWorld({
   planeRef, map, children, ...meshProps
 }: Props & React.JSX.IntrinsicElements['mesh']) {
+  const controls = useControls('Shard Mirror Material', {
+    roughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
+    metalness: { value: 0.0, min: 0, max: 1, step: 0.01 },
+    transmission: { value: 0.0, min: 0, max: 1, step: 0.01 },
+    thickness: { value: 0.0, min: 0, max: 10, step: 0.1 },
+    ior: { value: 1.5, min: 1, max: 2.5, step: 0.01 },
+    clearcoat: { value: 0.0, min: 0, max: 1, step: 0.01 },
+    clearcoatRoughness: { value: 0.0, min: 0, max: 1, step: 0.01 },
+    reflectivity: { value: 1.0, min: 0, max: 1, step: 0.01 },
+    envMapIntensity: { value: 1.0, min: 0, max: 10, step: 0.1 },
+    sheen: { value: 0.0, min: 0, max: 1, step: 0.01 },
+    sheenRoughness: { value: 0.0, min: 0, max: 1, step: 0.01 },
+    sheenColor: { value: '#ffffff' },
+    iridescence: { value: 0.0, min: 0, max: 1, step: 0.01 },
+    iridescenceIOR: { value: 1.3, min: 1, max: 2.5, step: 0.01 },
+    attenuationDistance: { value: 0.0, min: 0, max: 10, step: 0.1 },
+    attenuationColor: { value: '#ffffff' },
+    bumpScale: { value: 1.0, min: 0, max: 10, step: 0.1 },
+  })
+
+  const baseMatRef = useRef<THREE.MeshPhysicalMaterial | null>(null)
+
   const material = useMemo(() => {
-    const mat = new ShardMirrorMat()
-    mat.uMap = map as any
+    const baseMat = new THREE.MeshPhysicalMaterial()
+    baseMatRef.current = baseMat
+    
+    baseMat.roughness = controls.roughness
+    baseMat.metalness = controls.metalness
+    baseMat.transmission = controls.transmission
+    baseMat.thickness = controls.thickness
+    baseMat.ior = controls.ior
+    baseMat.clearcoat = controls.clearcoat
+    baseMat.clearcoatRoughness = controls.clearcoatRoughness
+    baseMat.reflectivity = controls.reflectivity
+    baseMat.envMapIntensity = controls.envMapIntensity
+    baseMat.sheen = controls.sheen
+    baseMat.sheenRoughness = controls.sheenRoughness
+    baseMat.sheenColor.set(controls.sheenColor)
+    baseMat.iridescence = controls.iridescence
+    baseMat.iridescenceIOR = controls.iridescenceIOR
+    baseMat.attenuationDistance = controls.attenuationDistance
+    baseMat.attenuationColor.set(controls.attenuationColor)
+    baseMat.bumpScale = controls.bumpScale
+
+    const mat = new CustomShaderMaterial({
+      baseMaterial: baseMat,
+      vertexShader: vert,
+      fragmentShader: frag,
+      uniforms: {
+        uCamPos: { value: new THREE.Vector3() },
+        uCenter: { value: new THREE.Vector3() },
+        uU: { value: new THREE.Vector3(1, 0, 0) },
+        uV: { value: new THREE.Vector3(0, 1, 0) },
+        uN: { value: new THREE.Vector3(0, 0, 1) },
+        uSize: { value: new THREE.Vector2(2, 2) },
+        uMap: { value: map },
+        uFresPow: { value: 4.0 },
+        uFresGain: { value: 0.08 },
+      },
+      silent: true,
+    })
     mat.transparent = true
     mat.depthWrite = false
-
+    
     return mat
-  }, [map])
+  }, [map, controls])
+
+  useEffect(() => {
+    const baseMat = baseMatRef.current
+    if (!baseMat) return
+    
+    baseMat.roughness = controls.roughness
+    baseMat.metalness = controls.metalness
+    baseMat.transmission = controls.transmission
+    baseMat.thickness = controls.thickness
+    baseMat.ior = controls.ior
+    baseMat.clearcoat = controls.clearcoat
+    baseMat.clearcoatRoughness = controls.clearcoatRoughness
+    baseMat.reflectivity = controls.reflectivity
+    baseMat.envMapIntensity = controls.envMapIntensity
+    baseMat.sheen = controls.sheen
+    baseMat.sheenRoughness = controls.sheenRoughness
+    baseMat.sheenColor.set(controls.sheenColor)
+    baseMat.iridescence = controls.iridescence
+    baseMat.iridescenceIOR = controls.iridescenceIOR
+    baseMat.attenuationDistance = controls.attenuationDistance
+    baseMat.attenuationColor.set(controls.attenuationColor)
+    baseMat.bumpScale = controls.bumpScale
+  }, [controls])
 
   useFrame(({ camera }) => {
     const plane = planeRef.current
     if (!plane) return
 
-    material.uCamPos.copy(camera.position)
+    material.uniforms.uCamPos.value.copy(camera.position)
 
     plane.updateWorldMatrix(true, false)
     const center = new THREE.Vector3().setFromMatrixPosition(plane.matrixWorld)
@@ -119,11 +185,11 @@ export function ShardMirrorWorld({
 
     const worldScale = new THREE.Vector3(); plane.getWorldScale(worldScale)
 
-    material.uCenter.copy(center)
-    material.uU.copy(u)
-    material.uV.copy(v)
-    material.uN.copy(n)
-    material.uSize.set(worldScale.x, worldScale.y) // sync to helper size
+    material.uniforms.uCenter.value.copy(center)
+    material.uniforms.uU.value.copy(u)
+    material.uniforms.uV.value.copy(v)
+    material.uniforms.uN.value.copy(n)
+    material.uniforms.uSize.value.set(worldScale.x, worldScale.y) // sync to helper size
   })
 
   return (
