@@ -1,5 +1,6 @@
 import { Lightformer, Environment } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
+import BackgroundSphere from "./BackgroundSphere";
 
 interface EnvironmentSetupProps {
     quality?: number;
@@ -10,6 +11,7 @@ export default function EnvironmentSetup({ quality = 256 }: EnvironmentSetupProp
         <>
             {/* <Environment preset="city"> */}
             <Environment resolution={quality} environmentIntensity={0.5} >
+                <BackgroundSphere/>
                 <group rotation={[-Math.PI / 2, 0, 0]}>
                     <Lightformer intensity={2} rotation-x={Math.PI / 2} position={[0, 5, -9]} scale={[10, 10, 1]} />
                     {[2, 0, 2, 0, 2, 0, 2, 0].map((x, i) => (

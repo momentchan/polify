@@ -76,14 +76,32 @@ type Props = {
 export const ShardMirror = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicElements['mesh']>(({
   planeRef, map, children, ...meshProps
 }, ref) => {
+
+  const matRef = useRef<CustomShaderMaterial | null>(null)
+
+  function setScalar<K extends keyof THREE.MeshPhysicalMaterial>(
+    key: K,
+    v: any,
+    defineThreshold = 0
+  ) {
+    const m = matRef.current as unknown as THREE.MeshPhysicalMaterial | null
+    if (!m) return
+    const prev = (m as any)[key]
+    ;(m as any)[key] = v
+    const crossed =
+      (prev <= defineThreshold && v > defineThreshold) ||
+      (prev > defineThreshold && v <= defineThreshold)
+    if (crossed) (m as any).needsUpdate = true
+  }
+
   const controls = useControls('Shard Mirror Material', {
-    roughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
-    metalness: { value: 1, min: 0, max: 1, step: 0.01 },
+    roughness: { value: 0.2, min: 0, max: 1, step: 0.01 },
+    metalness: { value: 0.5, min: 0, max: 1, step: 0.01 },
     transmission: { value: 0.0, min: 0, max: 1, step: 0.01 },
     thickness: { value: 0.0, min: 0, max: 10, step: 0.1 },
     ior: { value: 1.5, min: 1, max: 2.5, step: 0.01 },
-    clearcoat: { value: 0.0, min: 0, max: 1, step: 0.01 },
-    clearcoatRoughness: { value: 0.0, min: 0, max: 1, step: 0.01 },
+    clearcoat: { value: 1.0, min: 0, max: 1, step: 0.01 },
+    clearcoatRoughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
     reflectivity: { value: 1.0, min: 0, max: 1, step: 0.01 },
     envMapIntensity: { value: 1.0, min: 0, max: 10, step: 0.1 },
     sheen: { value: 0.0, min: 0, max: 1, step: 0.01 },
@@ -96,32 +114,29 @@ export const ShardMirror = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicEle
     bumpScale: { value: 1.0, min: 0, max: 10, step: 0.1 },
   })
 
-  const baseMatRef = useRef<THREE.MeshPhysicalMaterial | null>(null)
-
   const material = useMemo(() => {
-    const baseMat = new THREE.MeshPhysicalMaterial()
-    baseMatRef.current = baseMat
-    
-    baseMat.roughness = controls.roughness
-    baseMat.metalness = controls.metalness
-    baseMat.transmission = controls.transmission
-    baseMat.thickness = controls.thickness
-    baseMat.ior = controls.ior
-    baseMat.clearcoat = controls.clearcoat
-    baseMat.clearcoatRoughness = controls.clearcoatRoughness
-    baseMat.reflectivity = controls.reflectivity
-    baseMat.envMapIntensity = controls.envMapIntensity
-    baseMat.sheen = controls.sheen
-    baseMat.sheenRoughness = controls.sheenRoughness
-    baseMat.sheenColor.set(controls.sheenColor)
-    baseMat.iridescence = controls.iridescence
-    baseMat.iridescenceIOR = controls.iridescenceIOR
-    baseMat.attenuationDistance = controls.attenuationDistance
-    baseMat.attenuationColor.set(controls.attenuationColor)
-    baseMat.bumpScale = controls.bumpScale
+    const props = {
+      roughness: controls.roughness,
+      metalness: controls.metalness,
+      transmission: controls.transmission,
+      thickness: controls.thickness,
+      ior: controls.ior,
+      clearcoat: controls.clearcoat,
+      clearcoatRoughness: controls.clearcoatRoughness,
+      reflectivity: controls.reflectivity,
+      envMapIntensity: controls.envMapIntensity,
+      sheen: controls.sheen,
+      sheenRoughness: controls.sheenRoughness,
+      sheenColor: controls.sheenColor,
+      iridescence: controls.iridescence,
+      iridescenceIOR: controls.iridescenceIOR,
+      attenuationDistance: controls.attenuationDistance,
+      attenuationColor: controls.attenuationColor,
+      bumpScale: controls.bumpScale,
+    }
 
     const mat = new CustomShaderMaterial({
-      baseMaterial: baseMat,
+      baseMaterial: THREE.MeshPhysicalMaterial,
       vertexShader: vert,
       fragmentShader: frag,
       uniforms: {
@@ -134,41 +149,44 @@ export const ShardMirror = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicEle
         uMap: { value: map },
       },
       silent: true,
+      ...props,
     })
     mat.transparent = true
     mat.depthWrite = false
+    matRef.current = mat
     
     return mat
-  }, [map, controls])
+  }, [map])
 
   useEffect(() => {
-    const baseMat = baseMatRef.current
-    if (!baseMat) return
-    
-    baseMat.roughness = controls.roughness
-    baseMat.metalness = controls.metalness
-    baseMat.transmission = controls.transmission
-    baseMat.thickness = controls.thickness
-    baseMat.ior = controls.ior
-    baseMat.clearcoat = controls.clearcoat
-    baseMat.clearcoatRoughness = controls.clearcoatRoughness
-    baseMat.reflectivity = controls.reflectivity
-    baseMat.envMapIntensity = controls.envMapIntensity
-    baseMat.sheen = controls.sheen
-    baseMat.sheenRoughness = controls.sheenRoughness
-    baseMat.sheenColor.set(controls.sheenColor)
-    baseMat.iridescence = controls.iridescence
-    baseMat.iridescenceIOR = controls.iridescenceIOR
-    baseMat.attenuationDistance = controls.attenuationDistance
-    baseMat.attenuationColor.set(controls.attenuationColor)
-    baseMat.bumpScale = controls.bumpScale
+    if (!matRef.current) return
+
+    setScalar('roughness', controls.roughness)
+    setScalar('metalness', controls.metalness)
+    setScalar('transmission', controls.transmission)
+    setScalar('thickness', controls.thickness)
+    setScalar('ior', controls.ior)
+    setScalar('clearcoat', controls.clearcoat, 0)
+    setScalar('clearcoatRoughness', controls.clearcoatRoughness)
+    setScalar('reflectivity', controls.reflectivity)
+    setScalar('envMapIntensity', controls.envMapIntensity)
+    setScalar('sheen', controls.sheen)
+    setScalar('sheenRoughness', controls.sheenRoughness)
+    // setScalar('sheenColor', new THREE.Color(controls.sheenColor))
+    setScalar('iridescence', controls.iridescence)
+    setScalar('iridescenceIOR', controls.iridescenceIOR)
+    setScalar('attenuationDistance', controls.attenuationDistance)
+    // setScalar('attenuationColor', new THREE.Color(controls.attenuationColor))
+    setScalar('bumpScale', controls.bumpScale)
+
+
   }, [controls])
 
   useFrame(({ camera }) => {
     const plane = planeRef.current
     if (!plane) return
 
-    material.uniforms.uCamPos.value.copy(camera.position)
+    matRef.current?.uniforms.uCamPos.value.copy(camera.position)
 
     plane.updateWorldMatrix(true, false)
     const center = new THREE.Vector3().setFromMatrixPosition(plane.matrixWorld)
@@ -181,15 +199,15 @@ export const ShardMirror = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicEle
 
     const worldScale = new THREE.Vector3(); plane.getWorldScale(worldScale)
 
-    material.uniforms.uCenter.value.copy(center)
-    material.uniforms.uU.value.copy(u)
-    material.uniforms.uV.value.copy(v)
-    material.uniforms.uN.value.copy(n)
-    material.uniforms.uSize.value.set(worldScale.x, worldScale.y) // sync to helper size
+    matRef.current?.uniforms.uCenter.value.copy(center)
+    matRef.current?.uniforms.uU.value.copy(u)
+    matRef.current?.uniforms.uV.value.copy(v)
+    matRef.current?.uniforms.uN.value.copy(n)
+    matRef.current?.uniforms.uSize.value.set(worldScale.x, worldScale.y) // sync to helper size
   })
 
   return (
-    <mesh ref={ref} {...meshProps} material={material}>
+    <mesh ref={ref} {...meshProps} material={matRef.current as THREE.Material}>
       {/* use your shard geometry here */}
       <boxGeometry args={[1, 1, 0.05]} />
       {/* <meshBasicMaterial color="red" /> */}
