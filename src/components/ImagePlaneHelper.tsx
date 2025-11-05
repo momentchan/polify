@@ -6,9 +6,9 @@ export const ImagePlaneHelper = forwardRef<THREE.Group, React.JSX.IntrinsicEleme
   function ImagePlaneHelper(props, ref) {
     return (
       <group ref={ref} {...props}>
-        <mesh>
+        <mesh visible={props.debug}>
           <planeGeometry args={[1,1]} />
-          <meshBasicMaterial map={props.map} transparent opacity={props.debug ? 1 : 0} />
+          <meshBasicMaterial map={props.map} />
         </mesh>
       </group>
     )

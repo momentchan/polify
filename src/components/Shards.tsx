@@ -1,76 +1,94 @@
 import { useMemo } from "react";
 import Shard from "./Shard";
 
-function generatePositions(count: number, minDistance: number = 2.0, bounds: number = 10): [number, number, number][] {
-    const positions: [number, number, number][] = []
-    const maxAttempts = 100
+type Position = [number, number, number];
+type CameraOffset = [number, number, number];
+
+interface ShardConfig {
+    textureUrl: string;
+    cameraOffset: CameraOffset;
+}
+
+const SHARD_COUNT = 10;
+const MIN_DISTANCE = 2.5;
+const BOUNDS = 6;
+const MAX_POSITION_ATTEMPTS = 100;
+const TEXTURE_BASE_PATH = "textures";
+const TEXTURE_EXTENSION = ".avif";
+
+function generateRandomPosition(bounds: number): Position {
+    return [
+        (Math.random() - 0.5) * bounds * 2,
+        (Math.random() - 0.5) * bounds * 2,
+        (Math.random() - 0.5) * bounds * 2,
+    ];
+}
+
+function calculateDistance(pos1: Position, pos2: Position): number {
+    const dx = pos1[0] - pos2[0];
+    const dy = pos1[1] - pos2[1];
+    const dz = pos1[2] - pos2[2];
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+function isValidPosition(position: Position, existingPositions: Position[], minDistance: number): boolean {
+    return existingPositions.every(existing => calculateDistance(position, existing) >= minDistance);
+}
+
+function generatePositions(count: number, minDistance: number, bounds: number): Position[] {
+    const positions: Position[] = [];
     
     for (let i = 0; i < count; i++) {
-        let attempts = 0
-        let position: [number, number, number]
-        let valid = false
+        let attempts = 0;
+        let position: Position | null = null;
+        let valid = false;
         
-        while (!valid && attempts < maxAttempts) {
-            position = [
-                (Math.random() - 0.5) * bounds * 2,
-                (Math.random() - 0.5) * bounds * 2,
-                (Math.random() - 0.5) * bounds * 2
-            ]
-            
-            // Check distance from all existing positions
-            valid = positions.every(existing => {
-                const dx = position[0] - existing[0]
-                const dy = position[1] - existing[1]
-                const dz = position[2] - existing[2]
-                const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-                return distance >= minDistance
-            })
-            
-            attempts++
+        while (!valid && attempts < MAX_POSITION_ATTEMPTS) {
+            position = generateRandomPosition(bounds);
+            valid = isValidPosition(position, positions, minDistance);
+            attempts++;
         }
         
-        if (valid) {
-            positions.push(position!)
-        } else {
-            // Fallback: use position anyway if couldn't find valid one
-            positions.push([
-                (Math.random() - 0.5) * bounds * 2,
-                (Math.random() - 0.5) * bounds * 2,
-                (Math.random() - 0.5) * bounds * 2
-            ])
-        }
+        positions.push(position || generateRandomPosition(bounds));
     }
     
-    return positions
+    return positions;
+}
+
+function generateCameraOffset(): CameraOffset {
+    return [
+        (Math.random() -0.5) * Math.PI ,
+        (Math.random() -0.5) * Math.PI ,
+        0,
+    ];
+}
+
+function generateTextureUrl(index: number): string {
+    return `${TEXTURE_BASE_PATH}/img${index + 1}${TEXTURE_EXTENSION}`;
+}
+
+function generateShardConfigs(count: number): ShardConfig[] {
+    return Array.from({ length: count }, (_, index) => ({
+        textureUrl: generateTextureUrl(index),
+        cameraOffset: generateCameraOffset(),
+    }));
 }
 
 export default function Shards() {
-    const positions = useMemo(() => generatePositions(10, 2.5, 8), [])
-
-    const shards = useMemo(() => [
-        { textureUrl: "textures/img1.avif", cameraOffset: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, 0] as [number, number, number] },
-        { textureUrl: "textures/img2.avif", cameraOffset: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, 0] as [number, number, number] },
-        { textureUrl: "textures/img3.avif", cameraOffset: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, 0] as [number, number, number] },
-        { textureUrl: "textures/img4.avif", cameraOffset: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, 0] as [number, number, number] },
-        { textureUrl: "textures/img5.avif", cameraOffset: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, 0] as [number, number, number] },
-        { textureUrl: "textures/img6.avif", cameraOffset: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, 0] as [number, number, number] },
-        { textureUrl: "textures/img7.avif", cameraOffset: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, 0] as [number, number, number] },
-        { textureUrl: "textures/img8.avif", cameraOffset: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, 0] as [number, number, number] },
-        { textureUrl: "textures/img9.avif", cameraOffset: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, 0] as [number, number, number] },
-        { textureUrl: "textures/img10.avif", cameraOffset: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, 0] as [number, number, number] },
-    ], [])
+    const shardConfigs = useMemo(() => generateShardConfigs(SHARD_COUNT), []);
+    const positions = useMemo(() => generatePositions(SHARD_COUNT, MIN_DISTANCE, BOUNDS), []);
 
     return (
         <>
-            {shards.map((shard, index) => (
+            {shardConfigs.map((config, index) => (
                 <Shard 
-                    key={index} 
-                    textureUrl={shard.textureUrl} 
+                    key={config.textureUrl}
+                    textureUrl={config.textureUrl} 
                     position={positions[index]} 
-                    cameraOffset={shard.cameraOffset}
+                    cameraOffset={config.cameraOffset}
                     debug={false} 
                 />
             ))}
         </>
-    )
+    );
 }

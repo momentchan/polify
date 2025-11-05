@@ -1,24 +1,37 @@
 import { useFrame } from "@react-three/fiber"
 import { useControls } from "leva"
-import { useMemo } from "react"
+import { useMemo, useRef, useEffect } from "react"
 import * as THREE from "three"
+import { GradientTexture, GradientType } from "@react-three/drei"
 import fractal from "@packages/r3f-gist/shaders/cginc/noise/fractal.glsl"
+import simplexNoise from "@packages/r3f-gist/shaders/cginc/noise/simplexNoise.glsl"
 import random from "@packages/r3f-gist/shaders/cginc/noise/random.glsl"
 
 
 export default function BackgroundSphere() {
 
-    const { colorA, colorB, frequency, speed, power } = useControls({
-        colorA: { value: '#371d8d' },
-        colorB: { value: '#ff666c' },
+    const controls = useControls({
+        stop3: { value: 0.64, min: 0, max: 1, step: 0.01 },
+        stop2: { value: 0.52, min: 0, max: 1, step: 0.01 },
+        stop1: { value: 0.39, min: 0, max: 1, step: 0.01 },
+        stop0: { value: 0.27, min: 0, max: 1, step: 0.01 },
+        color3: { value: '#0d0a14' },
+        color2: { value: '#593396' },
+        color1: { value: '#db7ab4' },
+        color0: { value: '#d11d50' },
         frequency: { value: 4, min: 0, max: 30, step: 0.01 },
         speed: { value: 0.4, min: 0, max: 10, step: 0.01 },
         power: { value: 2, min: 0, max: 3, step: 0.01 },
     })
 
+    const stops = useMemo(() => [controls.stop0, controls.stop1, controls.stop2, controls.stop3], [controls.stop0, controls.stop1, controls.stop2, controls.stop3])
+    const colors = useMemo(() => [controls.color0, controls.color1, controls.color2, controls.color3], [controls.color0, controls.color1, controls.color2, controls.color3])
+    const { frequency, speed, power } = controls
+
+    const gradientMaterialRef = useRef<THREE.MeshBasicMaterial | null>(null)
+
     const uniforms = useMemo(() => ({
-        uColorA: { value: new THREE.Color() },
-        uColorB: { value: new THREE.Color() },
+        uGradientTexture: { value: null as THREE.Texture | null },
         uFrequency: { value: frequency },
         uSpeed: { value: speed },
         uTime: { value: 0 },
@@ -38,16 +51,15 @@ export default function BackgroundSphere() {
         }
       `,
         fragmentShader: /* glsl */`
-        ${fractal}
+        ${simplexNoise}
         ${random}
     
         precision highp float;
         varying vec2 vUv;
         varying vec3 vPos;
-        uniform vec3  uColorA;
-        uniform vec3  uColorB;
-        uniform float uFrequency; // 0..1
-        uniform float uSpeed; // 0..1
+        uniform sampler2D uGradientTexture;
+        uniform float uFrequency;
+        uniform float uSpeed;
         uniform float uTime;
         uniform float uAspect;
         uniform float uPower;
@@ -56,16 +68,15 @@ export default function BackgroundSphere() {
         void main(){
           vec2 uv = vUv;
           // Bottom to top gradient based on vPos.y (normalized from -1 to 1 -> 0 to 1)
-          float gradient = smoothstep(0.4, 0.6, (vPos.y + 1.0) * 0.5);
+         float n = simplexNoise2d(vPos.x * 0.5 * vec2(uAspect, 1.0));
 
-          float n = pow(fbm2(vPos.xy * uFrequency * vec2(uAspect, 1.0), uSpeed * uTime), uPower);
-          vec3 col = mix(uColorA, uColorB, n);
-          col *= grainNoise(vPos.xy * vec2(uAspect, 1.0), 10000.0, vec2(0.9, 1.0));
-          // Blend noise-based color with gradient
-          vec3 gradientCol = mix(uColorA, uColorB, gradient);
-          col = mix(col, gradientCol, 0.5);
-    
-          col = mix(uColorB,uColorA, gradient);
+          float gradientPos = 1.0 - (vPos.y + 1.0) * 0.5 + n * 0.01;
+
+          // Sample gradient texture (x coordinate doesn't matter for linear vertical gradient)
+          vec3 gradientCol = texture2D(uGradientTexture, vec2(0.5, gradientPos)).rgb;
+
+
+          vec3 col = gradientCol;
     
           gl_FragColor = vec4(col, 1.0);
         }
@@ -75,10 +86,19 @@ export default function BackgroundSphere() {
     }), [uniforms])
 
 
+    // Update gradient texture when stops or colors change
+    useEffect(() => {
+        if (gradientMaterialRef.current?.map) {
+            material.uniforms.uGradientTexture.value = gradientMaterialRef.current.map
+        }
+    }, [stops, colors, material])
+
     useFrame((state) => {
         material.uniforms.uTime.value = state.clock.elapsedTime
-        material.uniforms.uColorA.value.set(new THREE.Color(colorA))
-        material.uniforms.uColorB.value.set(new THREE.Color(colorB))
+        // Get gradient texture from the material's map property
+        if (gradientMaterialRef.current?.map) {
+            material.uniforms.uGradientTexture.value = gradientMaterialRef.current.map
+        }
         material.uniforms.uFrequency.value = frequency
         material.uniforms.uSpeed.value = speed
         material.uniforms.uAspect.value = state.viewport.aspect
@@ -86,8 +106,23 @@ export default function BackgroundSphere() {
     })
 
     return (
-        <mesh scale={100} material={material}>
-            <sphereGeometry args={[1, 32, 32]} />
-        </mesh>
+        <>
+            {/* Hidden plane to hold the gradient texture */}
+            <mesh visible={false}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial ref={gradientMaterialRef}>
+                    <GradientTexture
+                        stops={stops}
+                        colors={colors}
+                        size={1024}
+                        width={1024}
+                        type={GradientType.Linear}
+                    />
+                </meshBasicMaterial>
+            </mesh>
+            <mesh scale={30} material={material}>
+                <sphereGeometry args={[1, 32, 32]} />
+            </mesh>
+        </>
     )
 }

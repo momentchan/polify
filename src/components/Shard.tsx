@@ -1,8 +1,8 @@
 // dependencies: @react-three/fiber, @react-three/drei
 import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
-import { ShardMirrorWorld } from './ShardMirrorWorld'
-import { useRef } from 'react'
+import { ShardMirror } from './ShardMirror'
+import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { ImagePlaneHelper } from './ImagePlaneHelper'
 
@@ -45,13 +45,13 @@ export default function Shard({ textureUrl, debug = false, position = [0, 0, 0],
             direction
         )
 
-        const cameraLerpFactor = 0.005 // slow for camera tracking
+        const cameraLerpFactor = 0.05 // slow for camera tracking
         cameraCurrentQuaternion.current.slerp(cameraTargetQuaternion.current, cameraLerpFactor)
         group.current.quaternion.copy(cameraCurrentQuaternion.current)
 
         // 2. Mouse offset rotation (smooth) - applied only to ShardMirrorWorld
         if (shardMirrorRef.current) {
-            const offsetAmount = 0.5 // adjust offset strength
+            const offsetAmount = 1 // adjust offset strength
             const offsetRotation = new THREE.Euler(
                 pointer.y * offsetAmount, // pitch offset
                 pointer.x * offsetAmount, // yaw offset
@@ -60,18 +60,21 @@ export default function Shard({ textureUrl, debug = false, position = [0, 0, 0],
             mouseTargetQuaternion.current.setFromEuler(offsetRotation)
             
             // Smooth interpolation toward target mouse rotation
-            const mouseLerpFactor = 0.05 // adjust smoothing speed (higher = faster response)
+            const mouseLerpFactor = 0.2 // adjust smoothing speed (higher = faster response)
             mouseCurrentQuaternion.current.slerp(mouseTargetQuaternion.current, mouseLerpFactor)
             shardMirrorRef.current.quaternion.copy(mouseCurrentQuaternion.current)
         }
     })
 
+    const scale = useMemo(() => {
+        return  new THREE.Vector3(2 + Math.random() * 0.5, 2 + Math.random() * 0.5, 1)
+    }, [])
+
     return (
-        <>
-            <group ref={group} position={position}>
-            <ImagePlaneHelper ref={planeA} map={map} position={[0, 0, -1]} rotation={[0, 0, 0]} scale={[5, 5, 1]} debug={debug} />
-                <ShardMirrorWorld ref={shardMirrorRef} planeRef={planeA} map={map} position={[0, 0, 0]} scale={[2, 2, 1]} />
-            </group>
-        </>
+        <group ref={group} position={position}>
+            <ImagePlaneHelper ref={planeA} map={map} position={[0, 0, -1]} rotation={[0, 0, 0]} scale={[7, 7, 1]} debug={debug} />
+            <ShardMirror ref={shardMirrorRef} planeRef={planeA} map={map} position={[0, 0, 0]} scale={scale} />
+        </group>
     )
 }
+ 

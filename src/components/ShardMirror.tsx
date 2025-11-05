@@ -30,8 +30,6 @@ const frag = /* glsl */`
   uniform vec2 uSize;     // plane width/height in world units
 
   uniform sampler2D uMap; // image
-  uniform float uFresPow;
-  uniform float uFresGain;
 
   void main() {
     vec3 view = normalize(uCamPos - vWpos);
@@ -64,9 +62,9 @@ const frag = /* glsl */`
     vec4 col = texture2D(uMap, uv);
     float alpha = denomFade * edgeFade * col.a;
 
+    col *= edgeFade;
     
-    float fres = pow(1.0 - max(dot(nml, view), 0.0), uFresPow) * uFresGain;
-    csm_DiffuseColor = vec4(col.rgb + fres, 1.0);
+    csm_DiffuseColor =  vec4(col.rgb, 1.0);
   }
 `;
 
@@ -75,7 +73,7 @@ type Props = {
   map: THREE.Texture;
 };
 
-export const ShardMirrorWorld = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicElements['mesh']>(({
+export const ShardMirror = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicElements['mesh']>(({
   planeRef, map, children, ...meshProps
 }, ref) => {
   const controls = useControls('Shard Mirror Material', {
@@ -134,8 +132,6 @@ export const ShardMirrorWorld = forwardRef<THREE.Mesh, Props & React.JSX.Intrins
         uN: { value: new THREE.Vector3(0, 0, 1) },
         uSize: { value: new THREE.Vector2(2, 2) },
         uMap: { value: map },
-        uFresPow: { value: 4.0 },
-        uFresGain: { value: 0.08 },
       },
       silent: true,
     })
@@ -202,4 +198,4 @@ export const ShardMirrorWorld = forwardRef<THREE.Mesh, Props & React.JSX.Intrins
   )
 })
 
-ShardMirrorWorld.displayName = 'ShardMirrorWorld'
+ShardMirror.displayName = 'ShardMirrorWorld'

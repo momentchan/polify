@@ -13,7 +13,7 @@ export default function App() {
             camera={{
                 fov: 45,
                 near: 0.1,
-                far: 200,
+                far: 60,
                 position: [0, 0, 5]
             }}
             gl={{ preserveDrawingBuffer: true, outputColorSpace: THREE.SRGBColorSpace }}
