@@ -3,44 +3,75 @@ import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { ShardMirrorWorld } from './ShardMirrorWorld'
 import { useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import { ImagePlaneHelper } from './ImagePlaneHelper'
-import { useFrame } from '@react-three/fiber'
 
 interface ShardProps {
-    textureUrl?: string
+    textureUrl: string,
+    debug?: boolean
     position?: [number, number, number]
-    rotation?: [number, number, number]
-    scale?: number
+    cameraOffset?: [number, number, number] // Euler rotation offset for camera-facing direction
 }
 
-export default function Shard({
-}: ShardProps) {
-
-    const map = useTexture('textures/favicon.png')
+export default function Shard({ textureUrl, debug = false, position = [0, 0, 0], cameraOffset = [0, 0, 0] }: ShardProps) {
+    const map = useTexture(textureUrl)
     map.wrapS = map.wrapT = THREE.ClampToEdgeWrapping
     map.anisotropy = 8
 
     const planeA = useRef<THREE.Group>(null)
+    const group = useRef<THREE.Group>(null)
+    const shardMirrorRef = useRef<THREE.Mesh>(null)
+    const cameraTargetQuaternion = useRef(new THREE.Quaternion())
+    const cameraCurrentQuaternion = useRef(new THREE.Quaternion())
+    const mouseTargetQuaternion = useRef(new THREE.Quaternion())
+    const mouseCurrentQuaternion = useRef(new THREE.Quaternion())
+    const { pointer } = useThree()
 
-    // useFrame(({ clock }) => {
-    //     if (planeA.current) {
-    //         const time = clock.getElapsedTime()
-    //         const radius = 2.0
-    //         planeA.current.position.x = Math.cos(time) * radius
-    //         planeA.current.position.y = Math.sin(time) * radius
-    //         // Keep Z position unchanged for XY plane circle
-    //     }
-    // })
+    useFrame(({ camera }) => {
+        if (!group.current) return
+
+        // 1. Camera-facing rotation (slow) - applied to whole group
+        const direction = new THREE.Vector3()
+        direction.subVectors(camera.position, group.current.position).normalize()
+
+        // Apply camera offset rotation
+        const offsetQuaternion = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(cameraOffset[0], cameraOffset[1], cameraOffset[2])
+        )
+        direction.applyQuaternion(offsetQuaternion)
+
+        cameraTargetQuaternion.current.setFromUnitVectors(
+            new THREE.Vector3(0, 0, 1), // forward direction
+            direction
+        )
+
+        const cameraLerpFactor = 0.005 // slow for camera tracking
+        cameraCurrentQuaternion.current.slerp(cameraTargetQuaternion.current, cameraLerpFactor)
+        group.current.quaternion.copy(cameraCurrentQuaternion.current)
+
+        // 2. Mouse offset rotation (smooth) - applied only to ShardMirrorWorld
+        if (shardMirrorRef.current) {
+            const offsetAmount = 0.5 // adjust offset strength
+            const offsetRotation = new THREE.Euler(
+                pointer.y * offsetAmount, // pitch offset
+                pointer.x * offsetAmount, // yaw offset
+                0
+            )
+            mouseTargetQuaternion.current.setFromEuler(offsetRotation)
+            
+            // Smooth interpolation toward target mouse rotation
+            const mouseLerpFactor = 0.05 // adjust smoothing speed (higher = faster response)
+            mouseCurrentQuaternion.current.slerp(mouseTargetQuaternion.current, mouseLerpFactor)
+            shardMirrorRef.current.quaternion.copy(mouseCurrentQuaternion.current)
+        }
+    })
 
     return (
         <>
-            {/* World-anchored image plane A (oriented toward +Z by default) */}
-            <ImagePlaneHelper ref={planeA} map={map} position={[0, 1.2, -1]} rotation={[0, 0, 0]} scale={[5, 5, 1]} />
-
-            {/* Shard that reflects plane A, only inside its silhouette */}
-            <ShardMirrorWorld planeRef={planeA} map={map} position={[0, 0, 0]} scale={[2, 2, 1]}/>
-
-            {/* Add more shards; each can reference planeA or another planeRef with its own texture */}
+            <group ref={group} position={position}>
+            <ImagePlaneHelper ref={planeA} map={map} position={[0, 0, -1]} rotation={[0, 0, 0]} scale={[5, 5, 1]} debug={debug} />
+                <ShardMirrorWorld ref={shardMirrorRef} planeRef={planeA} map={map} position={[0, 0, 0]} scale={[2, 2, 1]} />
+            </group>
         </>
     )
 }

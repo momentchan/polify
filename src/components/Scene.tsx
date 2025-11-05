@@ -1,8 +1,6 @@
-import { Canvas } from "@react-three/fiber";
-import Shard from "./Shard";
 import { CameraControls } from "@react-three/drei";
-import BasicMesh from "./BasicMesh";
 import EnvironmentSetup from "./EnvironmentSetup";
+import Shards from "./Shards";
 
 export default function Scene() {
     return (
@@ -14,7 +12,7 @@ export default function Scene() {
             <EnvironmentSetup/>
 
             <CameraControls makeDefault />
-            <Shard textureUrl="favicon.png" />
+            <Shards />
         </>
     )
 }

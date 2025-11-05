@@ -1,7 +1,7 @@
 // ShardMirrorWorld.tsx
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, forwardRef } from 'react'
 import { useControls } from 'leva'
 import CustomShaderMaterial from 'three-custom-shader-material/vanilla'
 
@@ -75,12 +75,12 @@ type Props = {
   map: THREE.Texture;
 };
 
-export function ShardMirrorWorld({
+export const ShardMirrorWorld = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicElements['mesh']>(({
   planeRef, map, children, ...meshProps
-}: Props & React.JSX.IntrinsicElements['mesh']) {
+}, ref) => {
   const controls = useControls('Shard Mirror Material', {
     roughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
-    metalness: { value: 0.0, min: 0, max: 1, step: 0.01 },
+    metalness: { value: 1, min: 0, max: 1, step: 0.01 },
     transmission: { value: 0.0, min: 0, max: 1, step: 0.01 },
     thickness: { value: 0.0, min: 0, max: 10, step: 0.1 },
     ior: { value: 1.5, min: 1, max: 2.5, step: 0.01 },
@@ -91,7 +91,7 @@ export function ShardMirrorWorld({
     sheen: { value: 0.0, min: 0, max: 1, step: 0.01 },
     sheenRoughness: { value: 0.0, min: 0, max: 1, step: 0.01 },
     sheenColor: { value: '#ffffff' },
-    iridescence: { value: 0.0, min: 0, max: 1, step: 0.01 },
+    iridescence: { value: 1.0, min: 0, max: 1, step: 0.01 },
     iridescenceIOR: { value: 1.3, min: 1, max: 2.5, step: 0.01 },
     attenuationDistance: { value: 0.0, min: 0, max: 10, step: 0.1 },
     attenuationColor: { value: '#ffffff' },
@@ -193,11 +193,13 @@ export function ShardMirrorWorld({
   })
 
   return (
-    <mesh {...meshProps} material={material}>
+    <mesh ref={ref} {...meshProps} material={material}>
       {/* use your shard geometry here */}
-      <boxGeometry args={[1, 1, 0.2]} />
+      <boxGeometry args={[1, 1, 0.05]} />
       {/* <meshBasicMaterial color="red" /> */}
       {children /* optional: add a slightly larger rim mesh as a sibling */}
     </mesh>
   )
-}
+})
+
+ShardMirrorWorld.displayName = 'ShardMirrorWorld'
