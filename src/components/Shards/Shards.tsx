@@ -9,7 +9,7 @@ interface ShardConfig {
     cameraOffset: CameraOffset;
 }
 
-const SHARD_COUNT = 10;
+const SHARD_COUNT = 1;
 const MIN_DISTANCE = 2.5;
 const BOUNDS = 6;
 const MAX_POSITION_ATTEMPTS = 100;
@@ -18,9 +18,9 @@ const TEXTURE_EXTENSION = ".avif";
 
 function generateRandomPosition(bounds: number): Position {
     return [
-        (Math.random() - 0.5) * bounds * 2,
-        (Math.random() - 0.5) * bounds * 2,
-        (Math.random() - 0.5) * bounds * 2,
+        (Math.random() - 0.5) * bounds * 2 * 0,
+        (Math.random() - 0.5) * bounds * 2 * 0,
+        (Math.random() - 0.5) * bounds * 2 * 0,
     ];
 }
 
@@ -57,8 +57,8 @@ function generatePositions(count: number, minDistance: number, bounds: number): 
 
 function generateCameraOffset(): CameraOffset {
     return [
-        (Math.random() -0.5) * Math.PI ,
-        (Math.random() -0.5) * Math.PI ,
+        (Math.random() -0.5) * Math.PI * 0,
+        (Math.random() -0.5) * Math.PI * 0,    
         0,
     ];
 }

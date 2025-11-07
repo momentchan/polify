@@ -46,11 +46,11 @@ declare module "@react-three/fiber" {
     }
 }
 
-export default function BackgroundDrop() {
+export default function BackgroundDrop(props: React.JSX.IntrinsicElements['mesh']) {
     const map = useTexture("/textures/bg.png");
 
     return (
-        <mesh>
+        <mesh {...props}>
             <planeGeometry args={[4, 2]} />
             <colorGradientMaterial
                 key={ColorGradientMaterial.key}

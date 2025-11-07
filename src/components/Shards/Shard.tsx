@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { ShardMirror } from './ShardMirror'
 import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { ImagePlaneHelper } from './ImagePlaneHelper'
+import { ImagePlaneHelper } from '../ImagePlaneHelper'
 
 interface ShardProps {
     textureUrl: string,
