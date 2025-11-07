@@ -122,9 +122,11 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   const {
     scratchBlend,
     blurAmount,
+    mappingScale,
   } = useControls('Shard.Material.Texture', {
     scratchBlend: { value: 0.3, min: 0, max: 1, step: 0.01 },
     blurAmount: { value: 0.01, min: 0, max: 0.03, step: 0.001 },
+    mappingScale: { value: 1.0, min: 0.1, max: 3.0, step: 0.01 },
   }, { collapsed: true })
 
   const {
@@ -154,11 +156,12 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
       scratchTex,
       fresnelConfig,
       scratchBlend,
-      blurAmount
+      blurAmount,
+      mappingScale
     )
     uniformInitTimeMs.current = perfNow() - start
     return result
-  }, [map, scratchTex, fresnelConfig, scratchBlend, blurAmount])
+  }, [map, scratchTex, fresnelConfig, scratchBlend, blurAmount, mappingScale])
 
   const uniformsRef = useRef(uniforms)
   useEffect(() => {
@@ -197,10 +200,11 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     updateFresnelUniforms(uniformsRef.current, fresnelConfig)
   }, [fresnelConfig])
 
-  // Update blur amount when control changes
+  // Update blur amount and mapping scale when controls change
   useEffect(() => {
     uniformsRef.current.uBlurAmount.value = blurAmount
-  }, [blurAmount])
+    uniformsRef.current.uMappingScale.value = mappingScale
+  }, [blurAmount, mappingScale])
 
   useEffect(() => {
     const physicalMaterial = material as unknown as THREE.MeshPhysicalMaterial & {

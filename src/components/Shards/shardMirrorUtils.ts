@@ -23,6 +23,7 @@ export type MaterialUniforms = Record<string, { value: unknown }> & {
   uSize: { value: THREE.Vector2 };
   uMap: { value: THREE.Texture };
   uBlurAmount: { value: number };
+  uMappingScale: { value: number };
   uFresnelPower: { value: number };
   uFresnelIntensity: { value: number };
   uFresnelColor: { value: THREE.Color };
@@ -85,7 +86,8 @@ export function createInitialUniforms(
   scratchTex: THREE.Texture,
   fresnel: FresnelConfig,
   scratchBlend: number,
-  blurAmount: number = 0.0
+  blurAmount: number = 0.0,
+  mappingScale: number = 1.0
 ): MaterialUniforms {
   return {
     uCamPos: { value: new THREE.Vector3() },
@@ -96,6 +98,7 @@ export function createInitialUniforms(
     uSize: { value: new THREE.Vector2(2, 2) },
     uMap: { value: map },
     uBlurAmount: { value: blurAmount },
+    uMappingScale: { value: mappingScale },
     uFresnelPower: { value: fresnel.power },
     uFresnelIntensity: { value: fresnel.enabled ? fresnel.intensity : 0.0 },
     uFresnelColor: { value: new THREE.Color(fresnel.color) },
@@ -127,6 +130,7 @@ export function copyUniformValues(target: MaterialUniforms, source: MaterialUnif
 
   target.uMap.value = source.uMap.value
   target.uBlurAmount.value = source.uBlurAmount.value
+  target.uMappingScale.value = source.uMappingScale.value
   target.uScratchTex.value = source.uScratchTex.value
 
   target.uFresnelPower.value = source.uFresnelPower.value

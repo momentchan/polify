@@ -29,6 +29,7 @@ export const shardMirrorFragmentShader = /* glsl */`
 
   uniform sampler2D uMap;
   uniform float uBlurAmount;
+  uniform float uMappingScale;
 
   uniform float uFresnelPower;
   uniform float uFresnelIntensity;
@@ -57,7 +58,8 @@ export const shardMirrorFragmentShader = /* glsl */`
     float x = dot(rel, uU);
     float y = dot(rel, uV);
 
-    vec2 uv = vec2(x / uSize.x + 0.5, y / uSize.y + 0.5);
+    // Apply mapping scale: > 1.0 zooms in (closer), < 1.0 zooms out (farther)
+    vec2 uv = vec2(x * uMappingScale / uSize.x + 0.5, y * uMappingScale / uSize.y + 0.5);
 
     float inset = 0.0;
     vec2 d = vec2(
