@@ -28,6 +28,7 @@ export const shardMirrorFragmentShader = /* glsl */`
   uniform vec2 uSize;
 
   uniform sampler2D uMap;
+  uniform float uBlurAmount;
 
   uniform float uFresnelPower;
   uniform float uFresnelIntensity;
@@ -65,7 +66,28 @@ export const shardMirrorFragmentShader = /* glsl */`
     );
     float edgeFade = smoothstep(inset, inset + 0.015, min(d.x, d.y));
 
-    vec4 col = texture2D(uMap, uv);
+    // Blur sampling
+    vec4 col;
+    if (uBlurAmount > 0.0) {
+      vec2 texelSize = vec2(1.0 / uSize.x, 1.0 / uSize.y) * uBlurAmount;
+      
+      // Sample 3x3 grid around the current pixel
+      vec4 s0 = texture2D(uMap, uv + vec2(-texelSize.x, -texelSize.y));
+      vec4 s1 = texture2D(uMap, uv + vec2(0.0, -texelSize.y));
+      vec4 s2 = texture2D(uMap, uv + vec2(texelSize.x, -texelSize.y));
+      vec4 s3 = texture2D(uMap, uv + vec2(-texelSize.x, 0.0));
+      vec4 s4 = texture2D(uMap, uv);
+      vec4 s5 = texture2D(uMap, uv + vec2(texelSize.x, 0.0));
+      vec4 s6 = texture2D(uMap, uv + vec2(-texelSize.x, texelSize.y));
+      vec4 s7 = texture2D(uMap, uv + vec2(0.0, texelSize.y));
+      vec4 s8 = texture2D(uMap, uv + vec2(texelSize.x, texelSize.y));
+      
+      // Box blur (equal weights)
+      col = (s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8) / 9.0;
+    } else {
+      col = texture2D(uMap, uv);
+    }
+    
     float alpha = denomFade * edgeFade * col.a;
 
     col *= edgeFade;

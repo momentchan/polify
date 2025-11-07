@@ -3,7 +3,7 @@ import type { CameraOffset, Position, ShardDefinition, ShardInstance, Vector3Tup
 const DEFAULT_MIN_DISTANCE = 1.5;
 const DEFAULT_BOUNDS = 3;
 const DEFAULT_MAX_POSITION_ATTEMPTS = 20;
-const DEFAULT_CENTER: Position = [0, 0, -5];
+const DEFAULT_CENTER: Position = [0, 0, -6];
 
 export interface ShardGenerationConfig {
     minDistance?: number;
@@ -32,7 +32,7 @@ function generateRandomPosition(bounds: number, center: Position, aspectRatio: n
 
     const x = r * sinPhi * Math.cos(theta) * aspectScaleX + center[0];
     const y = r * sinPhi * Math.sin(theta) * aspectScaleY + center[1];
-    const z = r * Math.cos(phi) + center[2];
+    const z = r * Math.cos(phi) * 2.5 + center[2];
 
     return [x, y, z];
 }

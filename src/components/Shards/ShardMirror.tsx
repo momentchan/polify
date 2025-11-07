@@ -26,7 +26,7 @@ type ShardMirrorProps = React.JSX.IntrinsicElements['group'] & {
   debugPerf?: boolean;
 };
 
-export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({ 
+export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   planeRef,
   map,
   shapePath,
@@ -44,7 +44,10 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   const groupRef = useRef<THREE.Group | null>(null)
 
   useImperativeHandle(ref, () => groupRef.current as THREE.Group)
-   
+
+  // Generate unique variance offset for each mirror instance
+  const varianceOffset = useMemo(() => Math.random() * Math.PI * 2, [])
+
   const {
     depth,
     bevelEnabled,
@@ -96,7 +99,6 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     attenuationDistance,
     attenuationColor,
     bumpScale,
-    scratchBlend,
   } = useControls('Shard.Material.Base', {
     roughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
     metalness: { value: 0.25, min: 0, max: 1, step: 0.01 },
@@ -115,7 +117,14 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     attenuationDistance: { value: 0.0, min: 0, max: 10, step: 0.1 },
     attenuationColor: { value: '#ffffff' },
     bumpScale: { value: 1.0, min: 0, max: 10, step: 0.1 },
+  }, { collapsed: true })
+
+  const {
+    scratchBlend,
+    blurAmount,
+  } = useControls('Shard.Material.Texture', {
     scratchBlend: { value: 0.3, min: 0, max: 1, step: 0.01 },
+    blurAmount: { value: 0.01, min: 0, max: 0.03, step: 0.001 },
   }, { collapsed: true })
 
   const {
@@ -144,11 +153,12 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
       map,
       scratchTex,
       fresnelConfig,
-      scratchBlend
+      scratchBlend,
+      blurAmount
     )
     uniformInitTimeMs.current = perfNow() - start
     return result
-  }, [map, scratchTex, fresnelConfig, scratchBlend])
+  }, [map, scratchTex, fresnelConfig, scratchBlend, blurAmount])
 
   const uniformsRef = useRef(uniforms)
   useEffect(() => {
@@ -186,6 +196,11 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   useEffect(() => {
     updateFresnelUniforms(uniformsRef.current, fresnelConfig)
   }, [fresnelConfig])
+
+  // Update blur amount when control changes
+  useEffect(() => {
+    uniformsRef.current.uBlurAmount.value = blurAmount
+  }, [blurAmount])
 
   useEffect(() => {
     const physicalMaterial = material as unknown as THREE.MeshPhysicalMaterial & {
@@ -230,6 +245,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     attenuationDistance,
     attenuationColor,
     bumpScale,
+    blurAmount,
   ])
 
   useEffect(() => {
@@ -254,7 +270,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     frames: 0,
   })
 
-  useFrame(({ camera }) => {
+  useFrame(({ camera, clock }) => {
     const start = debugPerf ? perfNow() : 0
 
     if (!planeRef.current) return
@@ -280,6 +296,23 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     const worldScale = new THREE.Vector3()
     plane.getWorldScale(worldScale)
     uniforms.uSize.value.set(worldScale.x, worldScale.y)
+
+    // Add time variance motion to meshRef
+    if (meshRef.current) {
+      const time = clock.elapsedTime
+      const rotationSpeed = 0.5
+      const rotationAmount = 0.05
+      const positionSpeed = 0.5
+      const positionAmount = 0.2
+
+      // Subtle rotation oscillation with variance offset
+      meshRef.current.rotation.x = Math.sin(time * rotationSpeed + varianceOffset) * rotationAmount
+      meshRef.current.rotation.y = Math.cos(time * rotationSpeed * 0.7 + varianceOffset * 1.3) * rotationAmount
+
+      // Subtle position oscillation with variance offset
+      meshRef.current.position.x = Math.sin(time * positionSpeed * 0.6 + varianceOffset * 0.8) * positionAmount * 0.5
+      meshRef.current.position.y = Math.cos(time * positionSpeed * 0.8 + varianceOffset * 1.1) * positionAmount * 0.5
+    }
 
     if (debugPerf) {
       const elapsed = perfNow() - start
