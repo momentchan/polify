@@ -6,7 +6,7 @@ import * as THREE from 'three';
 
 export default function App() {
     return <>
-        <LevaWrapper />
+        <LevaWrapper collapsed={true} />
 
         <Canvas
             shadows
