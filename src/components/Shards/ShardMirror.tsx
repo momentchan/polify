@@ -3,12 +3,11 @@ import * as THREE from 'three'
 import { useFrame, useLoader } from '@react-three/fiber'
 import { useEffect, useImperativeHandle, useMemo, useRef, forwardRef } from 'react'
 import { useControls } from 'leva'
-import CustomShaderMaterial from 'three-custom-shader-material'
-import type CustomShaderMaterialVanilla from 'three-custom-shader-material/vanilla'
 import { SVGLoader, type SVGResult } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { useTexture } from '@react-three/drei'
 
 import {
+  copyUniformValues,
   createExtrudeSettings,
   createInitialUniforms,
   createShardGeometry,
@@ -17,13 +16,14 @@ import {
   type FresnelConfig,
   type MaterialUniforms,
 } from './shardMirrorUtils'
-import { shardMirrorVertexShader, shardMirrorFragmentShader } from './shardMirrorShaders'
+import { getSharedShardMirrorMaterial } from './shardMirrorMaterial'
 
 type ShardMirrorProps = React.JSX.IntrinsicElements['group'] & {
   planeRef: React.RefObject<THREE.Object3D | null>;
   map: THREE.Texture;
   shapePath: string;
   baseRotationZ?: number;
+  debugPerf?: boolean;
 };
 
 export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({ 
@@ -31,12 +31,14 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   map,
   shapePath,
   baseRotationZ = 0,
+  debugPerf = false,
   children,
   ...groupProps
 }, ref) => {
 
-  const matRef = useRef<CustomShaderMaterialVanilla<typeof THREE.MeshPhysicalMaterial> | null>(null)
   const scratchTex = useTexture('/textures/scratch.jpg')
+
+  const meshRef = useRef<THREE.Mesh | null>(null)
 
   const { paths } = useLoader(SVGLoader, shapePath) as SVGResult
   const groupRef = useRef<THREE.Group | null>(null)
@@ -50,14 +52,20 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     bevelSize,
     bevelSegments,
   } = useControls('Shard.Extrude', {
-    depth: { value: 0.05, min: 0, max: 1, step: 0.01 },
+    depth: { value: 0.02, min: 0, max: 0.1, step: 0.01 },
     bevelEnabled: { value: true },
     bevelThickness: { value: 0.01, min: 0, max: 0.1, step: 0.001 },
     bevelSize: { value: 0.01, min: 0, max: 0.1, step: 0.001 },
     bevelSegments: { value: 3, min: 1, max: 10, step: 1 },
   }, { collapsed: true })
 
+  const perfNow = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+  const geometryBuildTimeMs = useRef<number | null>(null)
+  const uniformInitTimeMs = useRef<number | null>(null)
+  const materialCreateTimeMs = useRef<number | null>(null)
+
   const geometry = useMemo(() => {
+    const start = perfNow()
     const settings: ExtrudeSettings = createExtrudeSettings({
       depth,
       bevelEnabled,
@@ -65,7 +73,9 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
       bevelSize,
       bevelSegments,
     })
-    return createShardGeometry(paths, settings)
+    const result = createShardGeometry(paths, settings)
+    geometryBuildTimeMs.current = perfNow() - start
+    return result
   }, [paths, depth, bevelEnabled, bevelThickness, bevelSize, bevelSegments])
 
   const {
@@ -128,25 +138,131 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     color: fresnelColor,
   }), [fresnelEnabled, fresnelPower, fresnelIntensity, fresnelColor])
 
-  const uniforms = useMemo<MaterialUniforms>(() => createInitialUniforms(
-    map,
-    scratchTex,
-    fresnelConfig,
-    scratchBlend
-  ), [map, scratchTex, fresnelConfig, scratchBlend])
+  const uniforms = useMemo<MaterialUniforms>(() => {
+    const start = perfNow()
+    const result = createInitialUniforms(
+      map,
+      scratchTex,
+      fresnelConfig,
+      scratchBlend
+    )
+    uniformInitTimeMs.current = perfNow() - start
+    return result
+  }, [map, scratchTex, fresnelConfig, scratchBlend])
+
+  const uniformsRef = useRef(uniforms)
+  useEffect(() => {
+    uniformsRef.current = uniforms
+  }, [uniforms])
+
+  const material = useMemo(() => {
+    const start = perfNow()
+    const result = getSharedShardMirrorMaterial(uniforms)
+    materialCreateTimeMs.current = perfNow() - start
+    return result
+  }, [uniforms])
+
+  useEffect(() => {
+    if (!debugPerf) return
+
+    const geometryTime = geometryBuildTimeMs.current
+    const uniformsTime = uniformInitTimeMs.current
+    const materialTime = materialCreateTimeMs.current
+
+    if (geometryTime != null) {
+      console.info(`[ShardMirror] geometry from '${shapePath}' built in ${geometryTime.toFixed(2)}ms`)
+    }
+
+    if (uniformsTime != null) {
+      console.info(`[ShardMirror] uniforms initialized in ${uniformsTime.toFixed(2)}ms`)
+    }
+
+    if (materialTime != null) {
+      console.info(`[ShardMirror] material clone created in ${materialTime.toFixed(2)}ms`)
+    }
+  }, [debugPerf, shapePath])
 
   // Update fresnel uniforms when controls change
   useEffect(() => {
-    updateFresnelUniforms(matRef.current, fresnelConfig)
+    updateFresnelUniforms(uniformsRef.current, fresnelConfig)
   }, [fresnelConfig])
 
+  useEffect(() => {
+    const physicalMaterial = material as unknown as THREE.MeshPhysicalMaterial & {
+      sheenColor: THREE.Color;
+      attenuationColor: THREE.Color;
+    }
+
+    physicalMaterial.roughness = roughness
+    physicalMaterial.metalness = metalness
+    physicalMaterial.transmission = transmission
+    physicalMaterial.thickness = thickness
+    physicalMaterial.ior = ior
+    physicalMaterial.clearcoat = clearcoat
+    physicalMaterial.clearcoatRoughness = clearcoatRoughness
+    physicalMaterial.reflectivity = reflectivity
+    physicalMaterial.envMapIntensity = envMapIntensity
+    physicalMaterial.sheen = sheen
+    physicalMaterial.sheenRoughness = sheenRoughness
+    physicalMaterial.sheenColor.set(sheenColor)
+    physicalMaterial.iridescence = iridescence
+    physicalMaterial.iridescenceIOR = iridescenceIOR
+    physicalMaterial.attenuationDistance = attenuationDistance
+    physicalMaterial.attenuationColor.set(attenuationColor)
+    physicalMaterial.bumpScale = bumpScale
+    physicalMaterial.needsUpdate = true
+  }, [
+    material,
+    roughness,
+    metalness,
+    transmission,
+    thickness,
+    ior,
+    clearcoat,
+    clearcoatRoughness,
+    reflectivity,
+    envMapIntensity,
+    sheen,
+    sheenRoughness,
+    sheenColor,
+    iridescence,
+    iridescenceIOR,
+    attenuationDistance,
+    attenuationColor,
+    bumpScale,
+  ])
+
+  useEffect(() => {
+    if (!meshRef.current) return
+
+    const mesh = meshRef.current
+    const previous = mesh.onBeforeRender
+    const handler: THREE.Mesh['onBeforeRender'] = () => {
+      const uniformsTarget = material.uniforms as unknown as MaterialUniforms
+      copyUniformValues(uniformsTarget, uniformsRef.current)
+    }
+
+    mesh.onBeforeRender = handler
+
+    return () => {
+      mesh.onBeforeRender = previous
+    }
+  }, [material])
+
+  const framePerf = useRef({
+    total: 0,
+    frames: 0,
+  })
+
   useFrame(({ camera }) => {
-    if (!planeRef.current || !matRef.current) return
+    const start = debugPerf ? perfNow() : 0
+
+    if (!planeRef.current) return
 
     const plane = planeRef.current
     if (!plane) return
 
-    const uniforms = matRef.current.uniforms as MaterialUniforms
+    const uniforms = uniformsRef.current
 
     uniforms.uCamPos.value.copy(camera.position)
 
@@ -164,39 +280,25 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     const worldScale = new THREE.Vector3()
     plane.getWorldScale(worldScale)
     uniforms.uSize.value.set(worldScale.x, worldScale.y)
+
+    if (debugPerf) {
+      const elapsed = perfNow() - start
+      framePerf.current.total += elapsed
+      framePerf.current.frames += 1
+
+      if (framePerf.current.frames >= 120) {
+        const average = framePerf.current.total / framePerf.current.frames
+        console.info(`[ShardMirror] average useFrame update: ${average.toFixed(3)}ms over ${framePerf.current.frames} frames`)
+        framePerf.current.total = 0
+        framePerf.current.frames = 0
+      }
+    }
   })
 
   return (
     <group ref={groupRef} {...groupProps}>
-      <mesh geometry={geometry} rotation={[0, 0, baseRotationZ]}>
-        <CustomShaderMaterial
-          ref={matRef}
-          baseMaterial={THREE.MeshPhysicalMaterial}
-          vertexShader={shardMirrorVertexShader}
-          fragmentShader={shardMirrorFragmentShader}
-          uniforms={uniforms}
-          silent={true}
-          transparent={true}
-          depthWrite={false}
-          roughness={roughness}
-          metalness={metalness}
-          transmission={transmission}
-          thickness={thickness}
-          ior={ior}
-          clearcoat={clearcoat}
-          clearcoatRoughness={clearcoatRoughness}
-          reflectivity={reflectivity}
-          envMapIntensity={envMapIntensity}
-          sheen={sheen}
-          sheenRoughness={sheenRoughness}
-          sheenColor={sheenColor}
-          iridescence={iridescence}
-          iridescenceIOR={iridescenceIOR}
-          attenuationDistance={attenuationDistance}
-          attenuationColor={attenuationColor}
-          bumpScale={bumpScale}
-          side={THREE.DoubleSide}
-        />
+      <mesh ref={meshRef} geometry={geometry} rotation={[0, 0, baseRotationZ]}>
+        <primitive object={material} attach="material" />
         {children /* optional: add a slightly larger rim mesh as a sibling */}
       </mesh>
     </group>

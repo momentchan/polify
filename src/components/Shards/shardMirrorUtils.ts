@@ -1,6 +1,4 @@
 import * as THREE from 'three'
-import type CustomShaderMaterialVanilla from 'three-custom-shader-material/vanilla'
-
 export type ExtrudeSettings = {
   depth: number;
   bevelEnabled: boolean;
@@ -103,13 +101,33 @@ export function createInitialUniforms(
   }
 }
 
+export function cloneMaterialUniforms(uniforms: MaterialUniforms): MaterialUniforms {
+  return THREE.UniformsUtils.clone(uniforms) as MaterialUniforms
+}
+
 export function updateFresnelUniforms(
-  material: CustomShaderMaterialVanilla<typeof THREE.MeshPhysicalMaterial> | null,
+  uniforms: MaterialUniforms,
   fresnel: FresnelConfig
 ): void {
-  if (!material) return
-  const uniforms = material.uniforms as unknown as MaterialUniforms
   uniforms.uFresnelPower.value = fresnel.power
   uniforms.uFresnelIntensity.value = fresnel.enabled ? fresnel.intensity : 0.0
   uniforms.uFresnelColor.value.set(fresnel.color)
+}
+
+export function copyUniformValues(target: MaterialUniforms, source: MaterialUniforms): void {
+  target.uCamPos.value.copy(source.uCamPos.value)
+  target.uCenter.value.copy(source.uCenter.value)
+  target.uU.value.copy(source.uU.value)
+  target.uV.value.copy(source.uV.value)
+  target.uN.value.copy(source.uN.value)
+  target.uSize.value.copy(source.uSize.value)
+
+  target.uMap.value = source.uMap.value
+  target.uScratchTex.value = source.uScratchTex.value
+
+  target.uFresnelPower.value = source.uFresnelPower.value
+  target.uFresnelIntensity.value = source.uFresnelIntensity.value
+  target.uFresnelColor.value.copy(source.uFresnelColor.value)
+
+  target.uScratchBlend.value = source.uScratchBlend.value
 }

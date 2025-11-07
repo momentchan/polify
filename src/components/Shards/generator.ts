@@ -63,8 +63,8 @@ function generatePositions(count: number, minDistance: number, bounds: number, m
 
 function generateCameraOffset(): CameraOffset {
     return [
-        (Math.random() - 0.5) * Math.PI * 0.25,
-        (Math.random() - 0.5) * Math.PI * 0.25,
+        (Math.random() - 0.5) * Math.PI * 0.5,
+        (Math.random() - 0.5) * Math.PI * 0.5,
         0,
     ];
 }

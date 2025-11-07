@@ -77,7 +77,7 @@ export default function Shard({ shard, debug = false, ...groupProps }: ShardProp
     return (
         <group ref={group} position={position} scale={scale} {...restGroupProps}>
             <ImagePlane ref={planeA} map={map} position={[0, 0, 3]} rotation={[0, 0, 0]} scale={[7, 7, 1]} debug={debug} />
-            <ShardMirror ref={shardMirrorRef} planeRef={planeA} map={map} shapePath={shape} baseRotationZ={baseRotationZ} position={[0, 0, 0]} />
+            <ShardMirror ref={shardMirrorRef} planeRef={planeA} map={map} shapePath={shape} baseRotationZ={baseRotationZ} position={[0, 0, 0]} debugPerf={debug} />
         </group>
     )
 }
