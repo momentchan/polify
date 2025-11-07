@@ -1,7 +1,7 @@
 // ShardMirrorWorld.tsx
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef, forwardRef, useEffect } from 'react'
+import { useMemo, useRef, forwardRef, useEffect, useImperativeHandle } from 'react'
 import { useControls } from 'leva'
 import CustomShaderMaterial from 'three-custom-shader-material'
 import type CustomShaderMaterialVanilla from 'three-custom-shader-material/vanilla'
@@ -49,7 +49,7 @@ const frag = /* glsl */`
   void main() {
     vec3 view = normalize(uCamPos - vWpos);
     vec3 nml = normalize(vWnorml);
-    vec3 refect = reflect(-view, nml);
+    vec3 refect = reflect(view, nml);
     
     // Calculate fresnel effect
     float fresnel = pow(1.0 - max(dot(view, nml), 0.0), uFresnelPower);
@@ -101,16 +101,21 @@ const frag = /* glsl */`
 type Props = {
   planeRef: React.RefObject<THREE.Object3D | null>; // the world-anchored helper
   map: THREE.Texture;
+  shapePath: string;
+  baseRotationZ?: number;
 };
 
-export const ShardMirror = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicElements['mesh']>(({
-  planeRef, map, children, ...meshProps
+export const ShardMirror = forwardRef<THREE.Group, Props & React.JSX.IntrinsicElements['group']>(({
+  planeRef, map, shapePath, baseRotationZ = 0, children, ...groupProps
 }, ref) => {
 
   const matRef = useRef<CustomShaderMaterialVanilla<typeof THREE.MeshPhysicalMaterial> | null>(null)
   const scratchTex = useTexture('/textures/scratch.jpg')
 
-  const { paths } = useLoader(SVGLoader, 'textures/shape1.svg')
+  const { paths } = useLoader(SVGLoader, shapePath)
+  const groupRef = useRef<THREE.Group>(null)
+
+  useImperativeHandle(ref, () => groupRef.current as THREE.Group)
   
   const extrudeControls = useControls('Shard.Extrude', {
     depth: { value: 0.05, min: 0, max: 1, step: 0.01 },
@@ -122,32 +127,32 @@ export const ShardMirror = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicEle
   
   const geometry = useMemo(() => {
     if (!paths?.length) return new THREE.BoxGeometry(1, 1, 0.05)
-    
+
     const shapes = paths.flatMap(path => path.toShapes(true))
     if (!shapes.length) return new THREE.BoxGeometry(1, 1, 0.05)
-    
+
     const extractedShape = shapes[0]
     const points = extractedShape.getPoints(12)
     if (!points.length) return new THREE.BoxGeometry(1, 1, 0.05)
-    
+
     // Calculate bounding box
     const bbox = new THREE.Box2()
     points.forEach(point => bbox.expandByPoint(new THREE.Vector2(point.x, point.y)))
-    
+
     const center = bbox.getCenter(new THREE.Vector2())
     const size = bbox.getSize(new THREE.Vector2())
     const scale = 1 / Math.max(size.x, size.y)
-    
+
     // Center, scale, and flip Y axis
-    const scaledPoints = points.map(point => 
+    const scaledPoints = points.map(point =>
       new THREE.Vector2(
         (point.x - center.x) * scale,
         -(point.y - center.y) * scale
       )
     )
     const transformedShape = new THREE.Shape(scaledPoints)
-    
-    const geometry = new THREE.ExtrudeGeometry(
+
+    const extrudedGeometry = new THREE.ExtrudeGeometry(
       transformedShape,
       {
         depth: extrudeControls.depth,
@@ -157,12 +162,12 @@ export const ShardMirror = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicEle
         bevelSegments: extrudeControls.bevelSegments,
       }
     )
-    
+
     // Generate UVs based on shape's coordinate space (0-1 range)
     // The transformed shape is normalized to fit within -0.5 to 0.5 range
-    const positions = geometry.attributes.position
+    const positions = extrudedGeometry.attributes.position
     const uvs = new Float32Array(positions.count * 2)
-    
+
     for (let i = 0; i < positions.count; i++) {
       const x = positions.getX(i)
       const y = positions.getY(i)
@@ -170,10 +175,10 @@ export const ShardMirror = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicEle
       uvs[i * 2] = (x + 0.5) // U coordinate
       uvs[i * 2 + 1] = (y + 0.5) // V coordinate
     }
-    
-    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
-    
-    return geometry
+
+    extrudedGeometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
+
+    return extrudedGeometry
   }, [paths, extrudeControls])
 
   const controls = useControls('Shard.Material.Base', {
@@ -258,37 +263,39 @@ export const ShardMirror = forwardRef<THREE.Mesh, Props & React.JSX.IntrinsicEle
   })
 
   return (
-    <mesh ref={ref} {...meshProps} geometry={geometry}>
-      <CustomShaderMaterial
-        ref={matRef}
-        baseMaterial={THREE.MeshPhysicalMaterial}
-        vertexShader={vert}
-        fragmentShader={frag}
-        uniforms={uniforms}
-        silent={true}
-        transparent={true}
-        depthWrite={false}
-        roughness={controls.roughness}
-        metalness={controls.metalness}
-        transmission={controls.transmission}
-        thickness={controls.thickness}
-        ior={controls.ior}
-        clearcoat={controls.clearcoat}
-        clearcoatRoughness={controls.clearcoatRoughness}
-        reflectivity={controls.reflectivity}
-        envMapIntensity={controls.envMapIntensity}
-        sheen={controls.sheen}
-        sheenRoughness={controls.sheenRoughness}
-        sheenColor={controls.sheenColor}
-        iridescence={controls.iridescence}
-        iridescenceIOR={controls.iridescenceIOR}
-        attenuationDistance={controls.attenuationDistance}
-        attenuationColor={controls.attenuationColor}
-        bumpScale={controls.bumpScale}
-        side={THREE.DoubleSide}
-      />
-      {children /* optional: add a slightly larger rim mesh as a sibling */}
-    </mesh>
+    <group ref={groupRef} {...groupProps}>
+      <mesh geometry={geometry} rotation={[0, 0, baseRotationZ]}>
+        <CustomShaderMaterial
+          ref={matRef}
+          baseMaterial={THREE.MeshPhysicalMaterial}
+          vertexShader={vert}
+          fragmentShader={frag}
+          uniforms={uniforms}
+          silent={true}
+          transparent={true}
+          depthWrite={false}
+          roughness={controls.roughness}
+          metalness={controls.metalness}
+          transmission={controls.transmission}
+          thickness={controls.thickness}
+          ior={controls.ior}
+          clearcoat={controls.clearcoat}
+          clearcoatRoughness={controls.clearcoatRoughness}
+          reflectivity={controls.reflectivity}
+          envMapIntensity={controls.envMapIntensity}
+          sheen={controls.sheen}
+          sheenRoughness={controls.sheenRoughness}
+          sheenColor={controls.sheenColor}
+          iridescence={controls.iridescence}
+          iridescenceIOR={controls.iridescenceIOR}
+          attenuationDistance={controls.attenuationDistance}
+          attenuationColor={controls.attenuationColor}
+          bumpScale={controls.bumpScale}
+          side={THREE.DoubleSide}
+        />
+        {children /* optional: add a slightly larger rim mesh as a sibling */}
+      </mesh>
+    </group>
   )
 })
 

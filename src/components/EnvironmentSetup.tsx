@@ -1,6 +1,6 @@
 import { Lightformer, Environment } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import BackgroundSphere from "./BackgroundSphere";
+import BackgroundSphere from "./Background/BackgroundSphere";
 
 interface EnvironmentSetupProps {
     quality?: number;
