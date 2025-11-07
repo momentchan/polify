@@ -17,6 +17,8 @@ export default function Scene() {
             <CameraControls maxDistance={30} makeDefault />
             <Shards />
             <BackgroundSphere />
+            <BackgroundDrop />
+
             <Effects />
 
         </>

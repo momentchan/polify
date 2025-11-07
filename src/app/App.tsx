@@ -16,7 +16,11 @@ export default function App() {
                 far: 60,
                 position: [0, 0, 5]
             }}
-            gl={{ preserveDrawingBuffer: true, outputColorSpace: THREE.SRGBColorSpace }}
+            gl={{ 
+                preserveDrawingBuffer: true, 
+                outputColorSpace: THREE.SRGBColorSpace,
+                toneMapping: THREE.ACESFilmicToneMapping,
+            }}
             dpr={[1, 2]}
             performance={{ min: 0.5, max: 1 }}
         >
