@@ -9,19 +9,13 @@ export default function Scene() {
     return (
         <>
             <color attach="background" args={['#000000']} />
-            {/* <fog attach="fog" args={['#222222', 0, 30]} /> */}
-            {/* <BasicMesh/> */}
 
             <directionalLight position={[10, 10, 10]} intensity={10} />
-            {/* <EnvironmentSetup/> */}
-
+            <EnvironmentSetup/>
             <CameraControls maxDistance={30} makeDefault />
             <Shards />
-            {/* <BackgroundSphere /> */}
             <BackgroundDrop position={[0, 0, -10]} scale={[10, 10, 10]} />
-
             <Effects />
-
         </>
     )
 }

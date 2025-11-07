@@ -1,8 +1,8 @@
 import type { CameraOffset, Position, ShardDefinition, ShardInstance, Vector3Tuple } from "./types";
 
-const DEFAULT_MIN_DISTANCE = 2.5;
+const DEFAULT_MIN_DISTANCE = 1.5;
 const DEFAULT_BOUNDS = 3;
-const DEFAULT_MAX_POSITION_ATTEMPTS = 10;
+const DEFAULT_MAX_POSITION_ATTEMPTS = 20;
 const DEFAULT_CENTER: Position = [0, 0, -5];
 
 export interface ShardGenerationConfig {
@@ -10,9 +10,10 @@ export interface ShardGenerationConfig {
     bounds?: number;
     maxPositionAttempts?: number;
     center?: Position;
+    aspectRatio?: number;
 }
 
-function generateRandomPosition(bounds: number, center: Position): Position {
+function generateRandomPosition(bounds: number, center: Position, aspectRatio: number = 1): Position {
     const radius = bounds;
 
     const u = Math.random();
@@ -23,8 +24,14 @@ function generateRandomPosition(bounds: number, center: Position): Position {
 
     const sinPhi = Math.sin(phi);
 
-    const x = r * sinPhi * Math.cos(theta) + center[0];
-    const y = r * sinPhi * Math.sin(theta) + center[1];
+    // Scale x and y based on aspect ratio to create an ellipsoid
+    // For landscape (aspectRatio > 1): stretch horizontally
+    // For portrait (aspectRatio < 1): stretch vertically
+    const aspectScaleX = aspectRatio >= 1 ? aspectRatio : 1;
+    const aspectScaleY = aspectRatio < 1 ? 1 / aspectRatio : 1;
+
+    const x = r * sinPhi * Math.cos(theta) * aspectScaleX + center[0];
+    const y = r * sinPhi * Math.sin(theta) * aspectScaleY + center[1];
     const z = r * Math.cos(phi) + center[2];
 
     return [x, y, z];
@@ -41,7 +48,7 @@ function isValidPosition(position: Position, existingPositions: Position[], minD
     return existingPositions.every(existing => calculateDistance(position, existing) >= minDistance);
 }
 
-function generatePositions(count: number, minDistance: number, bounds: number, maxAttempts: number, center: Position): Position[] {
+function generatePositions(count: number, minDistance: number, bounds: number, maxAttempts: number, center: Position, aspectRatio: number = 1): Position[] {
     const positions: Position[] = [];
 
     for (let i = 0; i < count; i++) {
@@ -50,12 +57,12 @@ function generatePositions(count: number, minDistance: number, bounds: number, m
         let valid = false;
 
         while (!valid && attempts < maxAttempts) {
-            position = generateRandomPosition(bounds, center);
+            position = generateRandomPosition(bounds, center, aspectRatio);
             valid = isValidPosition(position, positions, minDistance);
             attempts++;
         }
 
-        positions.push(position || generateRandomPosition(bounds, center));
+        positions.push(position || generateRandomPosition(bounds, center, aspectRatio));
     }
 
     return positions;
@@ -63,8 +70,8 @@ function generatePositions(count: number, minDistance: number, bounds: number, m
 
 function generateCameraOffset(): CameraOffset {
     return [
-        (Math.random() - 0.5) * Math.PI * 0.5,
-        (Math.random() - 0.5) * Math.PI * 0.5,
+        (Math.random() - 0.5) * Math.PI * 0.25,
+        (Math.random() - 0.5) * Math.PI * 0.25,
         0,
     ];
 }
@@ -89,10 +96,11 @@ export function createShardInstances(
         bounds = DEFAULT_BOUNDS,
         maxPositionAttempts = DEFAULT_MAX_POSITION_ATTEMPTS,
         center = DEFAULT_CENTER,
+        aspectRatio = 1,
     } = config;
 
     const count = database.length;
-    const positions = generatePositions(count, minDistance, bounds, maxPositionAttempts, center);
+    const positions = generatePositions(count, minDistance, bounds, maxPositionAttempts, center, aspectRatio);
     const scales = generateScales(count);
 
     return database.map((entry, index) => ({

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useThree } from "@react-three/fiber";
 import Shard from "./Shard";
 import type { ShardDefinition } from "./types";
 import { createShardInstances } from "./generator";
@@ -17,7 +18,14 @@ export const SHARD_DATABASE: ShardDefinition[] = [
 ];
 
 export default function Shards() {
-    const shards = useMemo(() => createShardInstances(SHARD_DATABASE), []);
+    const { size } = useThree();
+    const aspectRatio = size.width / size.height;
+    
+    const shards = useMemo(() => 
+        createShardInstances(SHARD_DATABASE, { aspectRatio }), 
+        [aspectRatio]
+    );
+    
     return (
         <>
             {shards.map((shard) => (
