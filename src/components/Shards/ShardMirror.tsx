@@ -1,187 +1,93 @@
 // ShardMirrorWorld.tsx
 import * as THREE from 'three'
-import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef, forwardRef, useEffect, useImperativeHandle } from 'react'
+import { useFrame, useLoader } from '@react-three/fiber'
+import { useEffect, useImperativeHandle, useMemo, useRef, forwardRef } from 'react'
 import { useControls } from 'leva'
 import CustomShaderMaterial from 'three-custom-shader-material'
 import type CustomShaderMaterialVanilla from 'three-custom-shader-material/vanilla'
-import { useLoader } from '@react-three/fiber'
-import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
+import { SVGLoader, type SVGResult } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { useTexture } from '@react-three/drei'
 
-import blending from '@packages/r3f-gist/shaders/cginc/math/blending.glsl'
+import {
+  createExtrudeSettings,
+  createInitialUniforms,
+  createShardGeometry,
+  updateFresnelUniforms,
+  type ExtrudeSettings,
+  type FresnelConfig,
+  type MaterialUniforms,
+} from './shardMirrorUtils'
+import { shardMirrorVertexShader, shardMirrorFragmentShader } from './shardMirrorShaders'
 
-const vert = /* glsl */`
-  varying vec3 vWpos;
-  varying vec3 vWnorml;
-  varying vec2 vUv;
-  void main(){
-    vec4 wp = modelMatrix * vec4(position,1.0);
-    vWpos = wp.xyz;
-    vWnorml = normalize(mat3(modelMatrix) * normal);
-    vUv = uv;
-  }
-`;
-
-const frag = /* glsl */`
-  ${blending}
-
-  precision highp float;
-  varying vec3 vWpos;
-  varying vec3 vWnorml;
-  varying vec2 vUv;
-  uniform vec3 uCamPos;
-
-  uniform vec3 uCenter;   // plane center (world)
-  uniform vec3 uU;        // in-plane X (unit, world)
-  uniform vec3 uV;        // in-plane Y (unit, world)
-  uniform vec3 uN;        // plane normal (unit, world)
-  uniform vec2 uSize;     // plane width/height in world units
-
-  uniform sampler2D uMap; // image
-
-  uniform float uFresnelPower;  // fresnel power
-  uniform float uFresnelIntensity;  // fresnel intensity
-  uniform vec3 uFresnelColor;  // fresnel color
-  uniform sampler2D uScratchTex; // scratch texture
-  uniform float uScratchBlend; // scratch blend
-
-  void main() {
-    vec3 view = normalize(uCamPos - vWpos);
-    vec3 nml = normalize(vWnorml);
-    vec3 refect = reflect(view, nml);
-    
-    // Calculate fresnel effect
-    float fresnel = pow(1.0 - max(dot(view, nml), 0.0), uFresnelPower);
-    vec3 fresnelColor = uFresnelColor * fresnel * uFresnelIntensity;
-
-    float denom = dot(refect, uN);
-
-    float t = dot(uCenter - vWpos, uN) / denom;
-
-    float denomFade = smoothstep(0.01, 0.04, abs(denom)); // parallel → fade out
-    float frontFade = step(0.0, t);                       // behind-plane → 0
-
-    vec3 hit = vWpos + t * refect;
-    vec3 rel = hit - uCenter;
-
-    float x = dot(rel, uU);
-    float y = dot(rel, uV);
-
-    vec2 uv = vec2(x / uSize.x + 0.5, y / uSize.y + 0.5);
-
-    // Soft crop near edges
-    float inset = 0.0; // push if you want a safe border, e.g. 0.002
-    vec2 d = vec2(
-      min(uv.x - 0.0, 1.0 - uv.x),
-      min(uv.y - 0.0, 1.0 - uv.y)
-    );
-    float edgeFade = smoothstep(inset, inset + 0.015, min(d.x, d.y));
-    
-    vec4 col = texture2D(uMap, uv);
-    float alpha = denomFade * edgeFade * col.a;
-
-    col *= edgeFade;
-
-    // Apply fresnel to color
-    col.rgb += fresnelColor;
-
-    vec4 scratch = texture2D(uScratchTex, vUv);
-    
-    // Convert to grayscale using luminance weights
-    float gray = dot(scratch.rgb, vec3(0.299, 0.587, 0.114));
-    vec3 scratchGray = vec3(gray);
-
-    col.rgb = mix(col.rgb, BlendScreen(col.rgb, scratchGray), uScratchBlend);
-
-    csm_DiffuseColor =  vec4(col.rgb, 1.0);
-  }
-`;
-
-type Props = {
-  planeRef: React.RefObject<THREE.Object3D | null>; // the world-anchored helper
+type ShardMirrorProps = React.JSX.IntrinsicElements['group'] & {
+  planeRef: React.RefObject<THREE.Object3D | null>;
   map: THREE.Texture;
   shapePath: string;
   baseRotationZ?: number;
 };
 
-export const ShardMirror = forwardRef<THREE.Group, Props & React.JSX.IntrinsicElements['group']>(({
-  planeRef, map, shapePath, baseRotationZ = 0, children, ...groupProps
+export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({ 
+  planeRef,
+  map,
+  shapePath,
+  baseRotationZ = 0,
+  children,
+  ...groupProps
 }, ref) => {
 
   const matRef = useRef<CustomShaderMaterialVanilla<typeof THREE.MeshPhysicalMaterial> | null>(null)
   const scratchTex = useTexture('/textures/scratch.jpg')
 
-  const { paths } = useLoader(SVGLoader, shapePath)
-  const groupRef = useRef<THREE.Group>(null)
+  const { paths } = useLoader(SVGLoader, shapePath) as SVGResult
+  const groupRef = useRef<THREE.Group | null>(null)
 
   useImperativeHandle(ref, () => groupRef.current as THREE.Group)
-  
-  const extrudeControls = useControls('Shard.Extrude', {
+   
+  const {
+    depth,
+    bevelEnabled,
+    bevelThickness,
+    bevelSize,
+    bevelSegments,
+  } = useControls('Shard.Extrude', {
     depth: { value: 0.05, min: 0, max: 1, step: 0.01 },
     bevelEnabled: { value: true },
     bevelThickness: { value: 0.01, min: 0, max: 0.1, step: 0.001 },
     bevelSize: { value: 0.01, min: 0, max: 0.1, step: 0.001 },
     bevelSegments: { value: 3, min: 1, max: 10, step: 1 },
   }, { collapsed: true })
-  
+
   const geometry = useMemo(() => {
-    if (!paths?.length) return new THREE.BoxGeometry(1, 1, 0.05)
+    const settings: ExtrudeSettings = createExtrudeSettings({
+      depth,
+      bevelEnabled,
+      bevelThickness,
+      bevelSize,
+      bevelSegments,
+    })
+    return createShardGeometry(paths, settings)
+  }, [paths, depth, bevelEnabled, bevelThickness, bevelSize, bevelSegments])
 
-    const shapes = paths.flatMap(path => path.toShapes(true))
-    if (!shapes.length) return new THREE.BoxGeometry(1, 1, 0.05)
-
-    const extractedShape = shapes[0]
-    const points = extractedShape.getPoints(12)
-    if (!points.length) return new THREE.BoxGeometry(1, 1, 0.05)
-
-    // Calculate bounding box
-    const bbox = new THREE.Box2()
-    points.forEach(point => bbox.expandByPoint(new THREE.Vector2(point.x, point.y)))
-
-    const center = bbox.getCenter(new THREE.Vector2())
-    const size = bbox.getSize(new THREE.Vector2())
-    const scale = 1 / Math.max(size.x, size.y)
-
-    // Center, scale, and flip Y axis
-    const scaledPoints = points.map(point =>
-      new THREE.Vector2(
-        (point.x - center.x) * scale,
-        -(point.y - center.y) * scale
-      )
-    )
-    const transformedShape = new THREE.Shape(scaledPoints)
-
-    const extrudedGeometry = new THREE.ExtrudeGeometry(
-      transformedShape,
-      {
-        depth: extrudeControls.depth,
-        bevelEnabled: extrudeControls.bevelEnabled,
-        bevelThickness: extrudeControls.bevelThickness,
-        bevelSize: extrudeControls.bevelSize,
-        bevelSegments: extrudeControls.bevelSegments,
-      }
-    )
-
-    // Generate UVs based on shape's coordinate space (0-1 range)
-    // The transformed shape is normalized to fit within -0.5 to 0.5 range
-    const positions = extrudedGeometry.attributes.position
-    const uvs = new Float32Array(positions.count * 2)
-
-    for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i)
-      const y = positions.getY(i)
-      // Map from normalized shape space (-0.5 to 0.5) to UV space (0 to 1)
-      uvs[i * 2] = (x + 0.5) // U coordinate
-      uvs[i * 2 + 1] = (y + 0.5) // V coordinate
-    }
-
-    extrudedGeometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
-
-    return extrudedGeometry
-  }, [paths, extrudeControls])
-
-  const controls = useControls('Shard.Material.Base', {
+  const {
+    roughness,
+    metalness,
+    transmission,
+    thickness,
+    ior,
+    clearcoat,
+    clearcoatRoughness,
+    reflectivity,
+    envMapIntensity,
+    sheen,
+    sheenRoughness,
+    sheenColor,
+    iridescence,
+    iridescenceIOR,
+    attenuationDistance,
+    attenuationColor,
+    bumpScale,
+    scratchBlend,
+  } = useControls('Shard.Material.Base', {
     roughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
     metalness: { value: 0.25, min: 0, max: 1, step: 0.01 },
     transmission: { value: 0.0, min: 0, max: 1, step: 0.01 },
@@ -202,7 +108,12 @@ export const ShardMirror = forwardRef<THREE.Group, Props & React.JSX.IntrinsicEl
     scratchBlend: { value: 0.3, min: 0, max: 1, step: 0.01 },
   }, { collapsed: true })
 
-  const fresnelControls = useControls('Shard.Material.Fresnel', {
+  const {
+    enabled: fresnelEnabled,
+    power: fresnelPower,
+    intensity: fresnelIntensity,
+    color: fresnelColor,
+  } = useControls('Shard.Material.Fresnel', {
     enabled: { value: true },
     power: { value: 2.5, min: 0.1, max: 5.0, step: 0.1 },
     intensity: { value: 0.45, min: 0, max: 2.0, step: 0.01 },
@@ -210,39 +121,32 @@ export const ShardMirror = forwardRef<THREE.Group, Props & React.JSX.IntrinsicEl
   }, { collapsed: true })
 
   // Initialize uniforms
-  const uniforms = useMemo(() => ({
-    uCamPos: { value: new THREE.Vector3() },
-    uCenter: { value: new THREE.Vector3() },
-    uU: { value: new THREE.Vector3(1, 0, 0) },
-    uV: { value: new THREE.Vector3(0, 1, 0) },
-    uN: { value: new THREE.Vector3(0, 0, 1) },
-    uSize: { value: new THREE.Vector2(2, 2) },
-    uMap: { value: map },
-    uFresnelPower: { value: fresnelControls.power },
-    uFresnelIntensity: { value: fresnelControls.enabled ? fresnelControls.intensity : 0.0 },
-    uFresnelColor: { value: new THREE.Color(fresnelControls.color) },
-    uScratchTex: { value: scratchTex },
-    uScratchBlend: { value: controls.scratchBlend },
-  }), [map, fresnelControls, scratchTex, controls.scratchBlend])
+  const fresnelConfig = useMemo<FresnelConfig>(() => ({
+    enabled: fresnelEnabled,
+    power: fresnelPower,
+    intensity: fresnelIntensity,
+    color: fresnelColor,
+  }), [fresnelEnabled, fresnelPower, fresnelIntensity, fresnelColor])
+
+  const uniforms = useMemo<MaterialUniforms>(() => createInitialUniforms(
+    map,
+    scratchTex,
+    fresnelConfig,
+    scratchBlend
+  ), [map, scratchTex, fresnelConfig, scratchBlend])
 
   // Update fresnel uniforms when controls change
   useEffect(() => {
-    if (!matRef.current) return
-    const uniforms = matRef.current.uniforms
-    uniforms.uFresnelPower.value = fresnelControls.power
-    uniforms.uFresnelIntensity.value = fresnelControls.enabled ? fresnelControls.intensity : 0.0
-    if (uniforms.uFresnelColor.value) {
-      uniforms.uFresnelColor.value.set(fresnelControls.color)
-    } else {
-      uniforms.uFresnelColor.value = new THREE.Color(fresnelControls.color)
-    }
-  }, [fresnelControls])
+    updateFresnelUniforms(matRef.current, fresnelConfig)
+  }, [fresnelConfig])
 
   useFrame(({ camera }) => {
     if (!planeRef.current || !matRef.current) return
 
     const plane = planeRef.current
-    const uniforms = matRef.current.uniforms
+    if (!plane) return
+
+    const uniforms = matRef.current.uniforms as MaterialUniforms
 
     uniforms.uCamPos.value.copy(camera.position)
 
@@ -268,29 +172,29 @@ export const ShardMirror = forwardRef<THREE.Group, Props & React.JSX.IntrinsicEl
         <CustomShaderMaterial
           ref={matRef}
           baseMaterial={THREE.MeshPhysicalMaterial}
-          vertexShader={vert}
-          fragmentShader={frag}
+          vertexShader={shardMirrorVertexShader}
+          fragmentShader={shardMirrorFragmentShader}
           uniforms={uniforms}
           silent={true}
           transparent={true}
           depthWrite={false}
-          roughness={controls.roughness}
-          metalness={controls.metalness}
-          transmission={controls.transmission}
-          thickness={controls.thickness}
-          ior={controls.ior}
-          clearcoat={controls.clearcoat}
-          clearcoatRoughness={controls.clearcoatRoughness}
-          reflectivity={controls.reflectivity}
-          envMapIntensity={controls.envMapIntensity}
-          sheen={controls.sheen}
-          sheenRoughness={controls.sheenRoughness}
-          sheenColor={controls.sheenColor}
-          iridescence={controls.iridescence}
-          iridescenceIOR={controls.iridescenceIOR}
-          attenuationDistance={controls.attenuationDistance}
-          attenuationColor={controls.attenuationColor}
-          bumpScale={controls.bumpScale}
+          roughness={roughness}
+          metalness={metalness}
+          transmission={transmission}
+          thickness={thickness}
+          ior={ior}
+          clearcoat={clearcoat}
+          clearcoatRoughness={clearcoatRoughness}
+          reflectivity={reflectivity}
+          envMapIntensity={envMapIntensity}
+          sheen={sheen}
+          sheenRoughness={sheenRoughness}
+          sheenColor={sheenColor}
+          iridescence={iridescence}
+          iridescenceIOR={iridescenceIOR}
+          attenuationDistance={attenuationDistance}
+          attenuationColor={attenuationColor}
+          bumpScale={bumpScale}
           side={THREE.DoubleSide}
         />
         {children /* optional: add a slightly larger rim mesh as a sibling */}

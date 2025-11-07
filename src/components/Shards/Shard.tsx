@@ -2,19 +2,20 @@
 import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { ShardMirror } from './ShardMirror'
-import { useMemo, useRef } from 'react'
+import { useRef } from 'react'
 import { useFrame, useThree, type ThreeElements } from '@react-three/fiber'
-import { ImagePlaneHelper } from './ImagePlaneHelper'
+import { ImagePlane } from './ImagePlane'
+import type { ShardInstance } from './types'
 
 type ShardProps = ThreeElements['group'] & {
-    textureUrl: string,
-    shapePath: string,
+    shard: ShardInstance,
     debug?: boolean
-    cameraOffset?: [number, number, number] // Euler rotation offset for camera-facing direction
 }
 
-export default function Shard({ textureUrl, shapePath, debug = false, cameraOffset = [0, 0, 0], ...groupProps }: ShardProps) {
-    const map = useTexture(textureUrl)
+export default function Shard({ shard, debug = false, ...groupProps }: ShardProps) {
+    const { image, shape, cameraOffset, position: defaultPosition, scale: defaultScale, baseRotationZ } = shard
+
+    const map = useTexture(image)
     map.wrapS = map.wrapT = THREE.ClampToEdgeWrapping
     map.anisotropy = 8
 
@@ -26,6 +27,12 @@ export default function Shard({ textureUrl, shapePath, debug = false, cameraOffs
     const mouseTargetQuaternion = useRef(new THREE.Quaternion())
     const mouseCurrentQuaternion = useRef(new THREE.Quaternion())
     const { pointer } = useThree()
+
+    const {
+        position = defaultPosition,
+        scale = defaultScale,
+        ...restGroupProps
+    } = groupProps
 
     useFrame(({ camera }) => {
         if (!group.current) return
@@ -67,14 +74,10 @@ export default function Shard({ textureUrl, shapePath, debug = false, cameraOffs
     })
 
 
-    const baseRotationZ = useMemo(() => {
-        return (Math.random() - 0.5) * Math.PI * 2
-    }, [])
-
     return (
-        <group ref={group} {...groupProps}>
-            <ImagePlaneHelper ref={planeA} map={map} position={[0, 0, -1]} rotation={[0, 0, 0]} scale={[7, 7, 1]} debug={debug} />
-            <ShardMirror ref={shardMirrorRef} planeRef={planeA} map={map} shapePath={shapePath} baseRotationZ={baseRotationZ} position={[0, 0, 0]} />
+        <group ref={group} position={position} scale={scale} {...restGroupProps}>
+            <ImagePlane ref={planeA} map={map} position={[0, 0, 3]} rotation={[0, 0, 0]} scale={[7, 7, 1]} debug={debug} />
+            <ShardMirror ref={shardMirrorRef} planeRef={planeA} map={map} shapePath={shape} baseRotationZ={baseRotationZ} position={[0, 0, 0]} />
         </group>
     )
 }
