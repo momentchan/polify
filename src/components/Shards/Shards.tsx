@@ -26,15 +26,26 @@ export const SHARD_DATABASE: Omit<ShardData, 'cameraOffset'>[] = [
 ];
 
 const MIN_DISTANCE = 2.5;
-const BOUNDS = 6;
+const BOUNDS = 3;
 const MAX_POSITION_ATTEMPTS = 10;
 
 function generateRandomPosition(bounds: number): Position {
-    return [
-        (Math.random() - 0.5) * bounds * 2,
-        (Math.random() - 0.5) * bounds * 2,
-        (Math.random() - 0.5) * bounds * 2,
-    ];
+    const radius = bounds;
+    const center: Position = [0, 0, -5];
+
+    const u = Math.random();
+    const v = Math.random();
+    const theta = 2 * Math.PI * u;
+    const phi = Math.acos(2 * v - 1);
+    const r = radius * Math.cbrt(Math.random());
+
+    const sinPhi = Math.sin(phi);
+
+    const x = r * sinPhi * Math.cos(theta) + center[0];
+    const y = r * sinPhi * Math.sin(theta) + center[1];
+    const z = r * Math.cos(phi) + center[2];
+
+    return [x, y, z];
 }
 
 function calculateDistance(pos1: Position, pos2: Position): number {
@@ -70,10 +81,17 @@ function generatePositions(count: number, minDistance: number, bounds: number): 
 
 function generateCameraOffset(): CameraOffset {
     return [
-        (Math.random() - 0.5) * Math.PI * 0,
-        (Math.random() - 0.5) * Math.PI * 0,
+        (Math.random() - 0.5) * Math.PI * 0.25,
+        (Math.random() - 0.5) * Math.PI * 0.25,
         0,
     ];
+}
+
+function generateScales(count: number): [number, number, number][] {
+    return Array.from({ length: count }, () => {
+        const xy = Math.random() * 0.5 + 1;
+        return [xy, xy, 1] as [number, number, number];
+    });
 }
 
 function createShardConfigsFromDatabase(database: Omit<ShardData, 'cameraOffset'>[]): ShardData[] {
@@ -86,7 +104,7 @@ function createShardConfigsFromDatabase(database: Omit<ShardData, 'cameraOffset'
 export default function Shards() {
     const shardConfigs = useMemo(() => createShardConfigsFromDatabase(SHARD_DATABASE), []);
     const positions = useMemo(() => generatePositions(SHARD_DATABASE.length, MIN_DISTANCE, BOUNDS), []);
-
+    const scales = useMemo(() => generateScales(SHARD_DATABASE.length), []);
     return (
         <>
             {shardConfigs.map((config, index) => (
@@ -95,6 +113,7 @@ export default function Shards() {
                     textureUrl={config.image}
                     shapePath={config.shape}
                     position={positions[index]}
+                    scale={scales[index]}
                     cameraOffset={config.cameraOffset}
                     debug={false}
                 />

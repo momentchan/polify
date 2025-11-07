@@ -3,18 +3,17 @@ import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { ShardMirror } from './ShardMirror'
 import { useMemo, useRef } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useFrame, useThree, type ThreeElements } from '@react-three/fiber'
 import { ImagePlaneHelper } from './ImagePlaneHelper'
 
-interface ShardProps {
+type ShardProps = ThreeElements['group'] & {
     textureUrl: string,
     shapePath: string,
     debug?: boolean
-    position?: [number, number, number]
     cameraOffset?: [number, number, number] // Euler rotation offset for camera-facing direction
 }
 
-export default function Shard({ textureUrl, shapePath, debug = false, position = [0, 0, 0], cameraOffset = [0, 0, 0] }: ShardProps) {
+export default function Shard({ textureUrl, shapePath, debug = false, cameraOffset = [0, 0, 0], ...groupProps }: ShardProps) {
     const map = useTexture(textureUrl)
     map.wrapS = map.wrapT = THREE.ClampToEdgeWrapping
     map.anisotropy = 8
@@ -67,18 +66,15 @@ export default function Shard({ textureUrl, shapePath, debug = false, position =
         }
     })
 
-    const scale = useMemo(() => {
-        return  new THREE.Vector3(2 + Math.random() * 0.5, 2 + Math.random() * 0.5, 1)
-    }, [])
 
     const baseRotationZ = useMemo(() => {
         return (Math.random() - 0.5) * Math.PI * 2
     }, [])
 
     return (
-        <group ref={group} position={position}>
+        <group ref={group} {...groupProps}>
             <ImagePlaneHelper ref={planeA} map={map} position={[0, 0, -1]} rotation={[0, 0, 0]} scale={[7, 7, 1]} debug={debug} />
-            <ShardMirror ref={shardMirrorRef} planeRef={planeA} map={map} shapePath={shapePath} baseRotationZ={baseRotationZ} position={[0, 0, 0]} scale={scale} />
+            <ShardMirror ref={shardMirrorRef} planeRef={planeA} map={map} shapePath={shapePath} baseRotationZ={baseRotationZ} position={[0, 0, 0]} />
         </group>
     )
 }
