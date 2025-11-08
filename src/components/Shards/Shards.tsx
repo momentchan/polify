@@ -10,22 +10,11 @@ export const SHARD_DATABASE: ShardDefinition[] = [
     { image: "textures/img3.avif", shape: "textures/shape3.svg" },
     { image: "textures/img4.avif", shape: "textures/shape4.svg" },
     { image: "textures/img5.avif", shape: "textures/shape1.svg" },
-    { image: "textures/img6.avif", shape: "textures/shape2.svg" },
-    { image: "textures/img7.avif", shape: "textures/shape3.svg" },
-    { image: "textures/img8.avif", shape: "textures/shape4.svg" },
-    { image: "textures/img9.avif", shape: "textures/shape1.svg" },
-    { image: "textures/img10.avif", shape: "textures/shape2.svg" },
 ];
 
 export default function Shards() {
-    const { size } = useThree();
-    const aspectRatio = size.width / size.height;
-    
-    const shards = useMemo(() => 
-        createShardInstances(SHARD_DATABASE, { aspectRatio }), 
-        [aspectRatio]
-    );
-    
+    const shards = useMemo(() => createShardInstances(SHARD_DATABASE), []);
+
     return (
         <>
             {shards.map((shard) => (

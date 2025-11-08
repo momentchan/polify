@@ -24,6 +24,8 @@ type ShardMirrorProps = React.JSX.IntrinsicElements['group'] & {
   shapePath: string;
   baseRotationZ?: number;
   debugPerf?: boolean;
+  onHoverEnter?: () => void;
+  onHoverLeave?: () => void;
 };
 
 export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
@@ -32,6 +34,8 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   shapePath,
   baseRotationZ = 0,
   debugPerf = false,
+  onHoverEnter,
+  onHoverLeave,
   children,
   ...groupProps
 }, ref) => {
@@ -334,7 +338,19 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
 
   return (
     <group ref={groupRef} {...groupProps}>
-      <mesh ref={meshRef} geometry={geometry} rotation={[0, 0, baseRotationZ]}>
+      <mesh 
+        ref={meshRef} 
+        geometry={geometry} 
+        rotation={[0, 0, baseRotationZ]}
+        onPointerEnter={(e) => {
+          e.stopPropagation()
+          onHoverEnter?.()
+        }}
+        onPointerLeave={(e) => {
+          e.stopPropagation()
+          onHoverLeave?.()
+        }}
+      >
         <primitive object={material} attach="material" />
         {children /* optional: add a slightly larger rim mesh as a sibling */}
       </mesh>
