@@ -12,10 +12,11 @@ import { MathUtils } from 'three'
 type ShardProps = ThreeElements['group'] & {
     shard: ShardInstance,
     debug?: boolean,
-    animValueRef?: React.RefObject<SharedAnimationValue>
+    animValueRef?: React.RefObject<SharedAnimationValue>,
+    onShardClick?: (position: [number, number, number]) => void
 }
 
-export default function Shard({ shard, debug = false, animValueRef, ...groupProps }: ShardProps) {
+export default function Shard({ shard, debug = false, animValueRef, onShardClick, ...groupProps }: ShardProps) {
     const { image, shape, cameraOffset, position: defaultPosition, scale: defaultScale, baseRotationZ } = shard
 
     const map = useTexture(image)
@@ -25,7 +26,6 @@ export default function Shard({ shard, debug = false, animValueRef, ...groupProp
     const planeA = useRef<THREE.Group>(null)
     const group = useRef<THREE.Group>(null)
     const shardMirrorRef = useRef<THREE.Group>(null)
-    const cameraTargetQuaternion = useRef(new THREE.Quaternion())
     const cameraCurrentQuaternion = useRef(new THREE.Quaternion())
     const mouseTargetQuaternion = useRef(new THREE.Quaternion())
     const mouseCurrentQuaternion = useRef(new THREE.Quaternion())
@@ -104,26 +104,16 @@ export default function Shard({ shard, debug = false, animValueRef, ...groupProp
             group.current.scale.copy(baseScale.current).multiplyScalar(scaleMultiplier)
         }
 
-        // Get world position (accounting for parent rotation)
+        // Get world position and world rotation
         group.current.updateWorldMatrix(true, false)
         const worldPosition = new THREE.Vector3()
         group.current.getWorldPosition(worldPosition)
-        
-        // Get parent rotation (from ShardSystem) to account for system rotation
-        const parentQuaternion = new THREE.Quaternion()
-        if (group.current.parent) {
-            group.current.parent.updateWorldMatrix(true, false)
-            group.current.parent.getWorldQuaternion(parentQuaternion)
-        }
-        const inverseParentQuaternion = parentQuaternion.clone().invert()
+        const worldQuaternion = new THREE.Quaternion()
+        group.current.getWorldQuaternion(worldQuaternion)
 
         // Calculate direction from shard to camera in world space
         const direction = new THREE.Vector3()
         direction.subVectors(camera.position, worldPosition).normalize()
-
-        // Transform direction to local space by inverting parent rotation
-        // This accounts for the ShardSystem's rotation
-        direction.applyQuaternion(inverseParentQuaternion)
 
         // When hovered, face camera directly using only X and Y rotation (no Z-axis rotation)
         // When not hovered, apply camera offset rotation
@@ -140,15 +130,28 @@ export default function Shard({ shard, debug = false, animValueRef, ...groupProp
         const pitch = Math.asin(-direction.y) // X-axis rotation (pitch)
         const yaw = Math.atan2(direction.x, direction.z) // Y-axis rotation (yaw)
         
-        // Create quaternion from only pitch and yaw (no roll/Z rotation)
-        cameraTargetQuaternion.current.setFromEuler(
+        // Create target quaternion in world space from only pitch and yaw (no roll/Z rotation)
+        const targetWorldQuaternion = new THREE.Quaternion().setFromEuler(
             new THREE.Euler(pitch, yaw, 0, 'XYZ')
         )
 
         // When hovered, rotate directly to camera (fast), otherwise slow tracking
         const cameraLerpFactor = hovered ? 0.3 : 0.05
-        cameraCurrentQuaternion.current.slerp(cameraTargetQuaternion.current, cameraLerpFactor)
-        group.current.quaternion.copy(cameraCurrentQuaternion.current)
+        cameraCurrentQuaternion.current.slerp(targetWorldQuaternion, cameraLerpFactor)
+        
+        // Convert world quaternion to local quaternion by removing parent rotation
+        // worldQuaternion = parentQuaternion * localQuaternion
+        // Therefore: localQuaternion = inverseParentQuaternion * worldQuaternion
+        const parentQuaternion = new THREE.Quaternion()
+        if (group.current.parent) {
+            group.current.parent.updateWorldMatrix(true, false)
+            group.current.parent.getWorldQuaternion(parentQuaternion)
+        }
+        const inverseParentQuaternion = parentQuaternion.clone().invert()
+        
+        // Apply parent rotation inverse to get local quaternion
+        const localQuaternion = inverseParentQuaternion.clone().multiply(cameraCurrentQuaternion.current)
+        group.current.quaternion.copy(localQuaternion)
 
         // 2. Mouse offset rotation (smooth) - applied only to ShardMirrorWorld
         // Reduce mouse offset when hovered to allow direct camera facing
@@ -192,6 +195,12 @@ export default function Shard({ shard, debug = false, animValueRef, ...groupProp
                 onHoverLeave={() => {
                     setHovered(false)
                     document.body.style.cursor = 'auto'
+                }}
+                onClick={(e) => {
+                    e.stopPropagation()
+                    if (onShardClick) {
+                        onShardClick(defaultPosition)
+                    }
                 }}
             />
         </group>

@@ -14,7 +14,7 @@ interface ShardSystemProps {
 /**
  * System component that manages shared animation value for Shards and Particles
  */
-export default function ShardSystem({ 
+export default function ShardSystem({
     animationDuration = 10,
     position = [0, 0, -6]
 }: ShardSystemProps) {
@@ -22,26 +22,31 @@ export default function ShardSystem({
     const animValueRef = useSharedAnimation(animationDuration);
     const groupRef = useRef<THREE.Group>(null!);
 
-    // Group rotation animation
+    // Group rotation animation (only for the system group, not shards)
     useFrame((_, delta) => {
         if (!groupRef.current || !animValueRef.current) return;
-        
+
         const smoothRotationSpeed = MathUtils.lerp(
             5,
-            0.1,
+            0.5,
             THREE.MathUtils.smoothstep(animValueRef.current.value, 0, 0.6)
         ) * 0.2;
         groupRef.current.rotation.y += delta * smoothRotationSpeed;
     });
 
     return (
-        <group ref={groupRef} position={position}>
-            <Shards animValueRef={animValueRef} />
-            <ShardParticles shapePath="textures/shape1.svg" count={64} animValueRef={animValueRef} />
-            <ShardParticles shapePath="textures/shape2.svg" count={64} animValueRef={animValueRef} />
-            <ShardParticles shapePath="textures/shape3.svg" count={64} animValueRef={animValueRef} />
-            <ShardParticles shapePath="textures/shape4.svg" count={64} animValueRef={animValueRef} />
-        </group>
+        <>
+            <group position={position}>
+                <Shards animValueRef={animValueRef} />
+            </group>
+
+            <group ref={groupRef} position={position}>
+                <ShardParticles shapePath="textures/shape1.svg" count={64} animValueRef={animValueRef} />
+                <ShardParticles shapePath="textures/shape2.svg" count={64} animValueRef={animValueRef} />
+                <ShardParticles shapePath="textures/shape3.svg" count={64} animValueRef={animValueRef} />
+                <ShardParticles shapePath="textures/shape4.svg" count={64} animValueRef={animValueRef} />
+            </group>
+        </>
     );
 }
 

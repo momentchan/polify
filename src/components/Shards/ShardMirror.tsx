@@ -22,6 +22,7 @@ type ShardMirrorProps = React.JSX.IntrinsicElements['group'] & {
   baseRotationZ?: number;
   onHoverEnter?: () => void;
   onHoverLeave?: () => void;
+  onClick?: (e: any) => void;
   animValueRef?: React.RefObject<SharedAnimationValue>
 };
 
@@ -32,6 +33,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   baseRotationZ = 0,
   onHoverEnter,
   onHoverLeave,
+  onClick,
   children,
   animValueRef,
   ...groupProps
@@ -198,6 +200,10 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
         onPointerLeave={(e) => {
           e.stopPropagation()
           onHoverLeave?.()
+        }}
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick?.(e)
         }}
       >
         <primitive object={material} attach="material" />

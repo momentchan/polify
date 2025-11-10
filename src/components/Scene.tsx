@@ -12,7 +12,7 @@ export default function Scene() {
             <fogExp2 attach="fog"  args={['#000000', 0.05]} />
 
             <directionalLight position={[10, 10, 10]} intensity={10} />
-            <CameraControls maxDistance={30} makeDefault />
+            {/* <CameraControls maxDistance={30} makeDefault /> */}
 
             <BackgroundDrop position={[0, 0, -30]} scale={[30, 30, 30]} />
             <EnvironmentSetup />
