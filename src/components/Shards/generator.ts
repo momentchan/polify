@@ -2,7 +2,6 @@ import type { CameraOffset, Position, ShardDefinition, ShardInstance, Vector3Tup
 
 const DEFAULT_MIN_DISTANCE = 2;
 const DEFAULT_MAX_POSITION_ATTEMPTS = 100;
-const DEFAULT_CENTER: Position = [0, 0, -6];
 const DEFAULT_RADIUS = 3;
 const DEFAULT_RIM = 0.1;
 
@@ -15,7 +14,7 @@ export interface ShardGenerationConfig {
     rim?: number;
 }
 
-function generateRandomPosition(radius: number, rim: number, center: Position): Position {
+function generateRandomPosition(radius: number, rim: number): Position {
     // Generate random spherical coordinates
     const u = Math.random();
     const v = Math.random();
@@ -29,9 +28,9 @@ function generateRandomPosition(radius: number, rim: number, center: Position): 
 
     // Convert spherical to Cartesian coordinates
     const sinPhi = Math.sin(phi);
-    const x = r * sinPhi * Math.cos(theta) + center[0];
-    const y = r * sinPhi * Math.sin(theta) + center[1];
-    const z = r * Math.cos(phi) + center[2];
+    const x = r * sinPhi * Math.cos(theta);
+    const y = r * sinPhi * Math.sin(theta);
+    const z = r * Math.cos(phi);
 
     return [x, y, z];
 }
@@ -47,7 +46,7 @@ function isValidPosition(position: Position, existingPositions: Position[], minD
     return existingPositions.every(existing => calculateDistance(position, existing) >= minDistance);
 }
 
-function generatePositions(count: number, minDistance: number, radius: number, rim: number, maxAttempts: number, center: Position): Position[] {
+function generatePositions(count: number, minDistance: number, radius: number, rim: number, maxAttempts: number): Position[] {
     const positions: Position[] = [];
 
     for (let i = 0; i < count; i++) {
@@ -56,12 +55,12 @@ function generatePositions(count: number, minDistance: number, radius: number, r
         let valid = false;
 
         while (!valid && attempts < maxAttempts) {
-            position = generateRandomPosition(radius, rim, center);
+            position = generateRandomPosition(radius, rim);
             valid = isValidPosition(position, positions, minDistance);
             attempts++;
         }
 
-        positions.push(position || generateRandomPosition(radius, rim, center));
+        positions.push(position || generateRandomPosition(radius, rim));
     }
 
     return positions;
@@ -93,13 +92,12 @@ export function createShardInstances(
     const {
         minDistance = DEFAULT_MIN_DISTANCE,
         maxPositionAttempts = DEFAULT_MAX_POSITION_ATTEMPTS,
-        center = DEFAULT_CENTER,
         radius = DEFAULT_RADIUS,
         rim = DEFAULT_RIM,
     } = config;
 
     const count = database.length;
-    const positions = generatePositions(count, minDistance, radius, rim, maxPositionAttempts, center);
+    const positions = generatePositions(count, minDistance, radius, rim, maxPositionAttempts);
     const scales = generateScales(count);
 
     return database.map((entry, index) => ({

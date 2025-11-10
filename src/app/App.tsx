@@ -3,7 +3,6 @@ import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
 import Scene from "../components/Scene";
 import * as THREE from 'three';
-import AdvancedExamples from "@packages/particle-system/examples/AdvancedExamples";
 
 export default function App() {
     return <>
@@ -27,7 +26,6 @@ export default function App() {
         >
             <AdaptiveDpr pixelated />
             <Scene />
-            {/* <AdvancedExamples/> */}
         </Canvas>
     </>
 }
