@@ -33,7 +33,7 @@ export function useParticleAnimation({
         const damping = MathUtils.lerp(
             1,
             0.95,
-            THREE.MathUtils.smoothstep(animValueRef.current.value, 0.3, 0.4)
+            THREE.MathUtils.smoothstep(animValueRef.current.value, 0.5, 0.7)
         );
         behavior.dampingUniform.value = damping;
 

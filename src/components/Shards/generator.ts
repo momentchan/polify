@@ -1,9 +1,9 @@
 import type { CameraOffset, Position, ShardDefinition, ShardInstance, Vector3Tuple } from "./types";
 
-const DEFAULT_MIN_DISTANCE = 2;
+const DEFAULT_MIN_DISTANCE = 0.05;
 const DEFAULT_MAX_POSITION_ATTEMPTS = 100;
-const DEFAULT_RADIUS = 3;
-const DEFAULT_RIM = 0.1;
+const DEFAULT_RADIUS = 0.25;
+const DEFAULT_RIM = 0.2;
 
 export interface ShardGenerationConfig {
     minDistance?: number;

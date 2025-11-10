@@ -27,9 +27,9 @@ export default function ShardSystem({
         if (!groupRef.current || !animValueRef.current) return;
         
         const smoothRotationSpeed = MathUtils.lerp(
-            5,
-            0.1,
-            THREE.MathUtils.smoothstep(animValueRef.current.value, 0, 0.6)
+            10,
+            0.5,
+            THREE.MathUtils.smoothstep(animValueRef.current.value, 0, 0.8)
         ) * 0.2;
         groupRef.current.rotation.y += delta * smoothRotationSpeed;
     });
@@ -37,11 +37,10 @@ export default function ShardSystem({
     return (
         <group ref={groupRef} position={position}>
             <Shards animValueRef={animValueRef} />
-            <ShardParticles shapePath="textures/shape1.svg" count={32} animValueRef={animValueRef} />
-            <ShardParticles shapePath="textures/shape2.svg" count={32} animValueRef={animValueRef} />
-            <ShardParticles shapePath="textures/shape3.svg" count={32} animValueRef={animValueRef} />
-            <ShardParticles shapePath="textures/shape4.svg" count={32} animValueRef={animValueRef} />
-            <ShardParticles shapePath="textures/shape5.svg" count={32} animValueRef={animValueRef} />
+            <ShardParticles shapePath="textures/shape1.svg" count={64} animValueRef={animValueRef} />
+            <ShardParticles shapePath="textures/shape2.svg" count={64} animValueRef={animValueRef} />
+            <ShardParticles shapePath="textures/shape3.svg" count={64} animValueRef={animValueRef} />
+            <ShardParticles shapePath="textures/shape4.svg" count={64} animValueRef={animValueRef} />
         </group>
     );
 }

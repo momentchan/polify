@@ -51,7 +51,7 @@ float randomSizeFromId(float id) {
   float r = randomFromId(id + 6000.0);
   // Map to size range: (1.0 - sizeVariation) to (1.0 + sizeVariation)
   // e.g., if sizeVariation = 0.5, range is 0.5 to 1.5
-  return .5 + (r - 0.5) * 1.0 * sizeVariation;
+  return 1. + (r - 0.5) * 0.25 * sizeVariation;
 }
 
 void main() {
