@@ -111,6 +111,10 @@ export function cloneMaterialUniforms(uniforms: MaterialUniforms): MaterialUnifo
   return THREE.UniformsUtils.clone(uniforms) as MaterialUniforms
 }
 
+export function cloneParticleMaterialUniforms(uniforms: ParticleMaterialUniforms): ParticleMaterialUniforms {
+  return THREE.UniformsUtils.clone(uniforms) as ParticleMaterialUniforms
+}
+
 export function updateFresnelUniforms(
   uniforms: MaterialUniforms,
   fresnel: FresnelConfig
@@ -194,4 +198,25 @@ export function updateParticleFresnelUniforms(
   uniforms.uFresnelPower.value = fresnel.power
   uniforms.uFresnelIntensity.value = fresnel.enabled ? fresnel.intensity : 0.0
   uniforms.uFresnelColor.value.set(fresnel.color)
+}
+
+export function copyParticleUniformValues(target: ParticleMaterialUniforms, source: ParticleMaterialUniforms): void {
+  // Particle system uniforms (per-instance)
+  if (source.positionTex && target.positionTex) target.positionTex.value = source.positionTex.value
+  if (source.velocityTex && target.velocityTex) target.velocityTex.value = source.velocityTex.value
+  if (source.time && target.time) target.time.value = source.time.value
+  if (source.delta && target.delta) target.delta.value = source.delta.value
+  if (source.sizeMultiplier && target.sizeMultiplier) target.sizeMultiplier.value = source.sizeMultiplier.value
+  if (source.opacity && target.opacity) target.opacity.value = source.opacity.value
+  if (source.instanceCount && target.instanceCount) target.instanceCount.value = source.instanceCount.value
+  if (source.animationValue && target.animationValue) target.animationValue.value = source.animationValue.value
+  if (source.sizeVariation && target.sizeVariation) target.sizeVariation.value = source.sizeVariation.value
+  
+  // Shared material uniforms
+  if (source.uCamPos && target.uCamPos) target.uCamPos.value.copy(source.uCamPos.value)
+  if (source.uFresnelPower && target.uFresnelPower) target.uFresnelPower.value = source.uFresnelPower.value
+  if (source.uFresnelIntensity && target.uFresnelIntensity) target.uFresnelIntensity.value = source.uFresnelIntensity.value
+  if (source.uFresnelColor && target.uFresnelColor) target.uFresnelColor.value.copy(source.uFresnelColor.value)
+  if (source.uScratchTex && target.uScratchTex) target.uScratchTex.value = source.uScratchTex.value
+  if (source.uScratchBlend && target.uScratchBlend) target.uScratchBlend.value = source.uScratchBlend.value
 }

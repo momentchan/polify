@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { createParticleUniforms, type ParticleMaterialUniforms, updateParticleFresnelUniforms, type FresnelConfig } from '../utils';
-import { createParticleMaterial as createMaterial } from './particleMaterial';
+import { getSharedParticleMaterial } from './particleMaterial';
 
 interface UseParticleMaterialProps {
     scratchTex: THREE.Texture;
@@ -11,7 +11,8 @@ interface UseParticleMaterialProps {
 }
 
 interface UseParticleMaterialReturn {
-    material: ReturnType<typeof createMaterial>;
+    material: ReturnType<typeof getSharedParticleMaterial>;
+    uniformsRef: React.MutableRefObject<ParticleMaterialUniforms>;
     updateMaterialProperties: (props: MaterialProperties) => void;
 }
 
@@ -51,22 +52,26 @@ export function useParticleMaterial({
         );
     }, [scratchTex, fresnelConfig, scratchBlend, instanceCount]);
 
-    // Create material instance
-    const material = useMemo(() => {
-        return createMaterial(uniforms);
+    // Store uniforms in ref for onBeforeRender updates
+    const uniformsRef = useRef(uniforms);
+    useEffect(() => {
+        uniformsRef.current = uniforms;
     }, [uniforms]);
 
-    // Update fresnel uniforms when controls change
-    useEffect(() => {
-        const materialUniforms = material.uniforms as unknown as ParticleMaterialUniforms;
-        updateParticleFresnelUniforms(materialUniforms, fresnelConfig);
-    }, [material, fresnelConfig]);
+    // Create shared material instance (singleton pattern like ShardMirror)
+    const material = useMemo(() => {
+        return getSharedParticleMaterial(uniforms);
+    }, [uniforms]);
 
-    // Update scratch blend when control changes
+    // Update fresnel uniforms when controls change (update ref, not material directly)
     useEffect(() => {
-        const materialUniforms = material.uniforms as unknown as ParticleMaterialUniforms;
-        materialUniforms.uScratchBlend.value = scratchBlend;
-    }, [material, scratchBlend]);
+        updateParticleFresnelUniforms(uniformsRef.current, fresnelConfig);
+    }, [fresnelConfig]);
+
+    // Update scratch blend when control changes (update ref, not material directly)
+    useEffect(() => {
+        uniformsRef.current.uScratchBlend.value = scratchBlend;
+    }, [scratchBlend]);
 
     // Function to update material properties
     const updateMaterialProperties = (props: MaterialProperties) => {
@@ -95,6 +100,6 @@ export function useParticleMaterial({
         physicalMaterial.needsUpdate = true;
     };
 
-    return { material, updateMaterialProperties };
+    return { material, uniformsRef, updateMaterialProperties };
 }
 

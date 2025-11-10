@@ -1,6 +1,6 @@
 import { ParticleSystem, RandomSpherePositionConfig } from "@packages/particle-system";
-import { useMemo, useRef } from "react";
-import { type ParticleMaterialUniforms } from "../utils";
+import { useMemo, useRef, useEffect } from "react";
+import { type ParticleMaterialUniforms, copyParticleUniformValues } from "../utils";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from 'three';
@@ -39,7 +39,7 @@ export default function ShardParticles({
     const geometry = useShardGeometry(paths, extrudeConfig);
 
     // Material
-    const { material } = useParticleMaterial({
+    const { material, uniformsRef } = useParticleMaterial({
         scratchTex,
         fresnelConfig,
         scratchBlend: materialTexture.scratchBlend,
@@ -48,6 +48,61 @@ export default function ShardParticles({
 
     // Update material properties when controls change
     useMaterialProperties(material, materialBase);
+
+    // Set up onBeforeRender to copy uniforms from ref to shared material
+    const groupRef = useRef<THREE.Group>(null);
+    const particleSystemRef = useRef<{ getParticleTexture: () => THREE.Texture | null; getVelocityTexture: () => THREE.Texture | null; reset: () => void } | null>(null);
+    
+    // Intercept ParticleSystem's material updates and update our ref
+    useFrame((state, delta) => {
+        // Copy from material (updated by ParticleSystem) to our ref
+        const materialUniforms = material.uniforms as unknown as ParticleMaterialUniforms;
+        if (materialUniforms.positionTex?.value) {
+            uniformsRef.current.positionTex.value = materialUniforms.positionTex.value;
+        }
+        if (materialUniforms.velocityTex?.value) {
+            uniformsRef.current.velocityTex.value = materialUniforms.velocityTex.value;
+        }
+        uniformsRef.current.time.value = state.clock.elapsedTime;
+        uniformsRef.current.delta.value = delta;
+        uniformsRef.current.instanceCount.value = count;
+    });
+
+    // Set up onBeforeRender on the InstancedMesh to copy uniforms from ref to shared material
+    useEffect(() => {
+        if (!groupRef.current) return;
+
+        const findAndSetupMesh = () => {
+            let instancedMesh: THREE.InstancedMesh | null = null;
+            groupRef.current?.traverse((child) => {
+                if (child instanceof THREE.InstancedMesh && !instancedMesh) {
+                    instancedMesh = child;
+                }
+            });
+
+            if (!instancedMesh) {
+                requestAnimationFrame(findAndSetupMesh);
+                return;
+            }
+
+            const mesh = instancedMesh as THREE.InstancedMesh;
+            const previous = mesh.onBeforeRender;
+            const handler: THREE.InstancedMesh['onBeforeRender'] = () => {
+                const uniformsTarget = material.uniforms as unknown as ParticleMaterialUniforms;
+                copyParticleUniformValues(uniformsTarget, uniformsRef.current);
+            };
+
+            mesh.onBeforeRender = handler;
+
+            return () => {
+                if (mesh.onBeforeRender === handler) {
+                    mesh.onBeforeRender = previous;
+                }
+            };
+        };
+
+        return findAndSetupMesh();
+    }, [material, uniformsRef]);
 
     // Behavior
     const behavior = useMemo(() => {
@@ -66,17 +121,18 @@ export default function ShardParticles({
         animValueRef,
     });
 
-    // Update camera position for fresnel
+    // Update camera position for fresnel (update ref, not material directly)
     useFrame(() => {
-        const materialUniforms = material.uniforms as unknown as ParticleMaterialUniforms;
-        materialUniforms.uCamPos.value.copy(camera.position);
+        uniformsRef.current.uCamPos.value.copy(camera.position);
     });
 
     if (!material || !geometry || !behavior) return null;
 
     return (
-        <group>
-        <ParticleSystem count={count}
+        <group ref={groupRef}>
+        <ParticleSystem 
+            ref={particleSystemRef}
+            count={count}
             config={config}
             behavior={behavior}
             meshType="instanced"
