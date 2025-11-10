@@ -139,3 +139,59 @@ export function copyUniformValues(target: MaterialUniforms, source: MaterialUnif
 
   target.uScratchBlend.value = source.uScratchBlend.value
 }
+
+// Particle-specific uniform types
+export type ParticleMaterialUniforms = Record<string, { value: unknown }> & {
+  // Particle system uniforms
+  positionTex: { value: THREE.Texture | null };
+  velocityTex: { value: THREE.Texture | null };
+  time: { value: number };
+  delta: { value: number };
+  sizeMultiplier: { value: number };
+  instanceCount: { value: number };
+  animationValue: { value: number };
+  sizeVariation: { value: number };
+  // Shared material uniforms
+  uCamPos: { value: THREE.Vector3 };
+  uFresnelPower: { value: number };
+  uFresnelIntensity: { value: number };
+  uFresnelColor: { value: THREE.Color };
+  uScratchTex: { value: THREE.Texture };
+  uScratchBlend: { value: number };
+}
+
+export function createParticleUniforms(
+  scratchTex: THREE.Texture,
+  fresnel: FresnelConfig,
+  scratchBlend: number,
+  instanceCount: number
+): ParticleMaterialUniforms {
+  return {
+    // Particle system uniforms
+    positionTex: { value: null },
+    velocityTex: { value: null },
+    time: { value: 0.0 },
+    delta: { value: 0.0 },
+    sizeMultiplier: { value: 0.3 },
+    opacity: { value: 0.8 },
+    instanceCount: { value: instanceCount },
+    animationValue: { value: 0 },
+    sizeVariation: { value: 0.5 },
+    // Shared material uniforms
+    uCamPos: { value: new THREE.Vector3() },
+    uFresnelPower: { value: fresnel.power },
+    uFresnelIntensity: { value: fresnel.enabled ? fresnel.intensity : 0.0 },
+    uFresnelColor: { value: new THREE.Color(fresnel.color) },
+    uScratchTex: { value: scratchTex },
+    uScratchBlend: { value: scratchBlend },
+  }
+}
+
+export function updateParticleFresnelUniforms(
+  uniforms: ParticleMaterialUniforms,
+  fresnel: FresnelConfig
+): void {
+  uniforms.uFresnelPower.value = fresnel.power
+  uniforms.uFresnelIntensity.value = fresnel.enabled ? fresnel.intensity : 0.0
+  uniforms.uFresnelColor.value.set(fresnel.color)
+}

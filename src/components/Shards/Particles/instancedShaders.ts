@@ -6,9 +6,9 @@ export const INSTANCED_VERTEX_SHADER = /*glsl*/ `
 uniform sampler2D positionTex;
 uniform sampler2D velocityTex;
 uniform float time;
+uniform float delta;
 uniform float sizeMultiplier;
 uniform float instanceCount;
-uniform float animationValue;
 uniform float sizeVariation; // 0.0 = no variation, 1.0 = full variation (0.5 to 1.5x)
 
 varying vec3 vWpos;
@@ -38,11 +38,12 @@ vec3 randomRotationSpeedFromId(float id) {
   float s1 = randomFromId(id + 3000.0);
   float s2 = randomFromId(id + 4000.0);
   float s3 = randomFromId(id + 5000.0);
-  // Map to rotation speed range: -2 to 2 radians per second
+  // Map to normalized rotation speed multipliers: -1 to 1
+  // These will be multiplied by vel.w (accumulated rotation multiplier) in the vertex shader
   return vec3(
-    (s1 - 0.5) * 4.0, // X rotation speed
-    (s2 - 0.5) * 4.0, // Y rotation speed
-    (s3 - 0.5) * 4.0  // Z rotation speed
+    (s1 - 0.5) * 2.0, // X rotation speed multiplier
+    (s2 - 0.5) * 2.0, // Y rotation speed multiplier
+    (s3 - 0.5) * 2.0  // Z rotation speed multiplier
   );
 }
 
@@ -67,14 +68,16 @@ void main() {
   // Get random base rotation based on instance ID
   vec3 randomRot = randomRotationFromId(instanceId);
   
-  // Get random rotation speed based on instance ID
-  vec3 rotationSpeed = randomRotationSpeedFromId(instanceId) * mix(1.0, 0.2, smoothstep(0.0, 0.6, animationValue));
+  // Get random rotation speed multipliers based on instance ID
+  // These are normalized values that will be multiplied by vel.w
+  vec3 rotationSpeed = randomRotationSpeedFromId(instanceId);
   
-  // Add time-based rotation
-  vec3 timeRotation = rotationSpeed * time;
+  // vel.w contains accumulated rotation multiplier (updated in velocity shader with delta * speedMultiplier)
+  // Multiply random rotation speeds by accumulated multiplier for final rotation
+  vec3 accumulatedRotation = rotationSpeed * vel.w;
   
-  // Combine base rotation with time-based rotation
-  vec3 finalRot = randomRot + timeRotation;
+  // Combine base rotation with accumulated rotation
+  vec3 finalRot = randomRot + accumulatedRotation;
   
   // Create rotation matrix from combined euler angles
   mat4 rotMat = eulerAnglesToRotationMatrix(finalRot);
