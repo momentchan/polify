@@ -11,7 +11,7 @@ export default function Effects() {
   }, { collapsed: true });
 
   const dofParams = useControls('Effects.Depth of Field', {
-    enabled: { value: true, label: 'Enable Depth of Field' },
+    enabled: { value: false, label: 'Enable Depth of Field' },
     focusDistance: { value: 0.67, min: 0, max: 1, step: 0.01 },
     focalLength: { value: 0.024, min: 0.001, max: 1, step: 0.001 },
     bokehScale: { value: 2, min: 0, max: 10, step: 0.1 },

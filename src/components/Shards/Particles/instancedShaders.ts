@@ -1,4 +1,5 @@
 import utility from '@packages/r3f-gist/shaders/cginc/math/utility.glsl'
+import blending from '@packages/r3f-gist/shaders/cginc/math/blending.glsl'
 
 // Vertex shader for instanced mesh rendering
 export const INSTANCED_VERTEX_SHADER = /*glsl*/ `
@@ -7,6 +8,12 @@ uniform sampler2D velocityTex;
 uniform float time;
 uniform float sizeMultiplier;
 uniform float instanceCount;
+uniform float animationValue;
+uniform float sizeVariation; // 0.0 = no variation, 1.0 = full variation (0.5 to 1.5x)
+
+varying vec3 vWpos;
+varying vec3 vWnorml;
+varying vec2 vUv;
 
 ${utility}
 
@@ -27,25 +34,56 @@ vec3 randomRotationFromId(float id) {
   );
 }
 
+vec3 randomRotationSpeedFromId(float id) {
+  float s1 = randomFromId(id + 3000.0);
+  float s2 = randomFromId(id + 4000.0);
+  float s3 = randomFromId(id + 5000.0);
+  // Map to rotation speed range: -2 to 2 radians per second
+  return vec3(
+    (s1 - 0.5) * 4.0, // X rotation speed
+    (s2 - 0.5) * 4.0, // Y rotation speed
+    (s3 - 0.5) * 4.0  // Z rotation speed
+  );
+}
+
+float randomSizeFromId(float id) {
+  float r = randomFromId(id + 6000.0);
+  // Map to size range: (1.0 - sizeVariation) to (1.0 + sizeVariation)
+  // e.g., if sizeVariation = 0.5, range is 0.5 to 1.5
+  return .5 + (r - 0.5) * 1.0 * sizeVariation;
+}
+
 void main() {
   // Calculate UV from instance ID (WebGL 2.0)
   float instanceId = float(gl_InstanceID);
   float textureSize = floor(sqrt(instanceCount));
   float u = (mod(instanceId, textureSize) + 0.5) / textureSize;
   float v = (floor(instanceId / textureSize) + 0.5) / textureSize;
-  vec2 uv = vec2(u, v);
+  vec2 particleUV = vec2(u, v);
   
-  vec4 pos = texture2D(positionTex, uv);
-  vec4 vel = texture2D(velocityTex, uv);
+  vec4 pos = texture2D(positionTex, particleUV);
+  vec4 vel = texture2D(velocityTex, particleUV);
   
-  // Get random rotation based on instance ID
+  // Get random base rotation based on instance ID
   vec3 randomRot = randomRotationFromId(instanceId);
   
-  // Create rotation matrix from random euler angles
-  mat4 rotMat = eulerAnglesToRotationMatrix(randomRot);
+  // Get random rotation speed based on instance ID
+  vec3 rotationSpeed = randomRotationSpeedFromId(instanceId) * mix(1.0, 0.2, smoothstep(0.0, 0.6, animationValue));
   
-  // Scale the base geometry position
-  vec3 lpos = position * sizeMultiplier;
+  // Add time-based rotation
+  vec3 timeRotation = rotationSpeed * time;
+  
+  // Combine base rotation with time-based rotation
+  vec3 finalRot = randomRot + timeRotation;
+  
+  // Create rotation matrix from combined euler angles
+  mat4 rotMat = eulerAnglesToRotationMatrix(finalRot);
+  
+  // Get random size based on instance ID
+  float randomSize = randomSizeFromId(instanceId);
+  
+  // Scale the base geometry position with random size variation
+  vec3 lpos = position * sizeMultiplier * randomSize;
   
   // Apply rotation to local position
   vec3 rotatedPos = (rotMat * vec4(lpos, 1.0)).xyz;
@@ -56,6 +94,17 @@ void main() {
   // Transform by instance matrix (identity in our case, but needed for CSM)
   vec4 instancePos = instanceMatrix * vec4(newPos, 1.0);
   
+  // Calculate world position for fresnel (before projection)
+  vec4 worldPos = modelMatrix * instancePos;
+  vWpos = worldPos.xyz;
+  
+  // Transform normal to world space (CSM may already define objectNormal/transformedNormal)
+  vec3 worldNormal = normalize(mat3(modelMatrix) * normal);
+  vWnorml = worldNormal;
+  
+  // Pass UV coordinates (use the actual UV attribute)
+  vUv = uv;
+  
   // CSM requires full transformation chain
   csm_PositionRaw = projectionMatrix * modelViewMatrix * instancePos;
 }
@@ -63,8 +112,40 @@ void main() {
 
 // Fragment shader for instanced mesh
 export const INSTANCED_FRAGMENT_SHADER = /*glsl*/ `
+${blending}
+
+precision highp float;
+
+varying vec3 vWpos;
+varying vec3 vWnorml;
+varying vec2 vUv;
+
+uniform vec3 uCamPos;
+uniform float uFresnelPower;
+uniform float uFresnelIntensity;
+uniform vec3 uFresnelColor;
+uniform sampler2D uScratchTex;
+uniform float uScratchBlend;
 
 void main() {
-  csm_DiffuseColor = vec4(0.2, 0.2, 0.2, 1.0);
+  vec3 baseColor = vec3(0.2, 0.2, 0.2);
+  
+  // Calculate fresnel effect
+  vec3 view = normalize(uCamPos - vWpos);
+  vec3 nml = normalize(vWnorml);
+  float fresnel = pow(1.0 - max(dot(view, nml), 0.0), uFresnelPower);
+  vec3 fresnelColor = uFresnelColor * fresnel * uFresnelIntensity;
+  
+  // Add fresnel to base color
+  vec3 col = baseColor + fresnelColor;
+  
+  // Apply scratch texture
+  vec4 scratch = texture2D(uScratchTex, vUv);
+  float gray = dot(scratch.rgb, vec3(0.299, 0.587, 0.114));
+  vec3 scratchGray = vec3(gray);
+  
+  col = mix(col, BlendScreen(col, scratchGray), uScratchBlend);
+  
+  csm_DiffuseColor = vec4(col, 1.0);
 }
 `;

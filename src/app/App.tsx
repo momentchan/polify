@@ -3,6 +3,7 @@ import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
 import Scene from "../components/Scene";
 import * as THREE from 'three';
+import AdvancedExamples from "@packages/particle-system/examples/AdvancedExamples";
 
 export default function App() {
     return <>
@@ -13,7 +14,7 @@ export default function App() {
             camera={{
                 fov: 45,
                 near: 0.1,
-                far: 20,
+                far: 50,
                 position: [0, 0, 5]
             }}
             gl={{ 
@@ -26,6 +27,7 @@ export default function App() {
         >
             <AdaptiveDpr pixelated />
             <Scene />
+            {/* <AdvancedExamples/> */}
         </Canvas>
     </>
 }
