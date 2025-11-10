@@ -11,21 +11,20 @@ import { useParticleMaterial } from "./useParticleMaterial";
 import { useParticleAnimation } from "./useParticleAnimation";
 import { useShardShape, useShardGeometry, useMaterialProperties, type SharedAnimationValue } from "../hooks";
 
-interface ParticlesProps {
+interface ShardParticlesProps {
     shapePath?: string;
     count?: number;
     animValueRef?: React.RefObject<SharedAnimationValue>;
 }
 
-export default function Particles({ 
+export default function ShardParticles({ 
     shapePath = 'textures/shape1.svg',
     count = 128,
     animValueRef: externalAnimValueRef
-}: ParticlesProps) {
+}: ShardParticlesProps) {
     const paths = useShardShape(shapePath);
     const scratchTex = useTexture('/textures/scratch.jpg');
     const { camera } = useThree();
-    const groupRef = useRef<THREE.Group>(null!);
 
     // Controls
     const { extrudeConfig, materialBase, materialTexture, fresnelConfig } = useParticleControls();
@@ -64,7 +63,6 @@ export default function Particles({
     useParticleAnimation({
         behavior,
         material,
-        groupRef,
         animValueRef,
     });
 
@@ -77,7 +75,7 @@ export default function Particles({
     if (!material || !geometry || !behavior) return null;
 
     return (
-        <group ref={groupRef}>
+        <group>
         <ParticleSystem count={count}
             config={config}
             behavior={behavior}
@@ -88,3 +86,4 @@ export default function Particles({
         </group>
     );
 }
+

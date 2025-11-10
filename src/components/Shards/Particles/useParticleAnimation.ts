@@ -9,14 +9,12 @@ import type { SharedAnimationValue } from "../hooks";
 interface UseParticleAnimationProps {
     behavior: AnimatedDampingBehavior;
     material: { uniforms: Record<string, { value: any }> };
-    groupRef: React.RefObject<THREE.Group>;
     animValueRef: React.RefObject<SharedAnimationValue>;
 }
 
 export function useParticleAnimation({
     behavior,
     material,
-    groupRef,
     animValueRef,
 }: UseParticleAnimationProps) {
 
@@ -41,14 +39,6 @@ export function useParticleAnimation({
 
         // Update animation value for velocity shader
         behavior.animationValueUniform.value = animValueRef.current.value;
-
-        // Group rotation animation
-        const smoothRotationSpeed = MathUtils.lerp(
-            5,
-            0.1,
-            THREE.MathUtils.smoothstep(animValueRef.current.value, 0, 0.6)
-        ) * 0.2;
-        groupRef.current.rotation.y += delta * smoothRotationSpeed;
 
         // Update material uniforms
         const materialUniforms = material.uniforms as unknown as ParticleMaterialUniforms;

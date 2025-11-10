@@ -47,11 +47,29 @@ export default function Shard({ shard, debug = false, animValueRef, ...groupProp
     useFrame(({ camera }) => {
         if (!group.current) return
 
-        // 1. Camera-facing rotation (slow) - applied to whole group
-        const direction = new THREE.Vector3()
-        direction.subVectors(camera.position, group.current.position).normalize()
+        // Get world position
+        group.current.updateWorldMatrix(true, false)
+        const worldPosition = new THREE.Vector3()
+        group.current.getWorldPosition(worldPosition)
+        
+        // Get parent rotation (from ShardSystem) to account for system rotation
+        const parentQuaternion = new THREE.Quaternion()
+        if (group.current.parent) {
+            group.current.parent.updateWorldMatrix(true, false)
+            group.current.parent.getWorldQuaternion(parentQuaternion)
+        }
+        const inverseParentQuaternion = parentQuaternion.clone().invert()
 
-        // Apply camera offset rotation only when not hovered
+        // Calculate direction from shard to camera in world space
+        const direction = new THREE.Vector3()
+        direction.subVectors(camera.position, worldPosition).normalize()
+
+        // Transform direction to local space by inverting parent rotation
+        // This accounts for the ShardSystem's rotation
+        direction.applyQuaternion(inverseParentQuaternion)
+
+        // When hovered, face camera directly (no offset)
+        // When not hovered, apply camera offset rotation
         if (!hovered) {
             const offsetQuaternion = new THREE.Quaternion().setFromEuler(
                 new THREE.Euler(cameraOffset[0], cameraOffset[1], cameraOffset[2])

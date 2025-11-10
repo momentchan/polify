@@ -1,6 +1,10 @@
+import { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import { MathUtils } from "three";
+import * as THREE from "three";
 import { useSharedAnimation } from "./hooks";
 import Shards from "./Shards";
-import Particles from "./Particles/Particles";
+import ShardParticles from "./Particles/ShardParticles";
 
 interface ShardSystemProps {
     animationDuration?: number;
@@ -16,15 +20,28 @@ export default function ShardSystem({
 }: ShardSystemProps) {
     // Shared animation value synchronized across all components
     const animValueRef = useSharedAnimation(animationDuration);
+    const groupRef = useRef<THREE.Group>(null!);
+
+    // Group rotation animation
+    useFrame((_, delta) => {
+        if (!groupRef.current || !animValueRef.current) return;
+        
+        const smoothRotationSpeed = MathUtils.lerp(
+            5,
+            0.1,
+            THREE.MathUtils.smoothstep(animValueRef.current.value, 0, 0.6)
+        ) * 0.2;
+        groupRef.current.rotation.y += delta * smoothRotationSpeed;
+    });
 
     return (
-        <group position={position}>
+        <group ref={groupRef} position={position}>
             <Shards animValueRef={animValueRef} />
-            <Particles shapePath="textures/shape1.svg" count={32} animValueRef={animValueRef} />
-            <Particles shapePath="textures/shape2.svg" count={32} animValueRef={animValueRef} />
-            <Particles shapePath="textures/shape3.svg" count={32} animValueRef={animValueRef} />
-            <Particles shapePath="textures/shape4.svg" count={32} animValueRef={animValueRef} />
-            <Particles shapePath="textures/shape5.svg" count={32} animValueRef={animValueRef} />
+            <ShardParticles shapePath="textures/shape1.svg" count={32} animValueRef={animValueRef} />
+            <ShardParticles shapePath="textures/shape2.svg" count={32} animValueRef={animValueRef} />
+            <ShardParticles shapePath="textures/shape3.svg" count={32} animValueRef={animValueRef} />
+            <ShardParticles shapePath="textures/shape4.svg" count={32} animValueRef={animValueRef} />
+            <ShardParticles shapePath="textures/shape5.svg" count={32} animValueRef={animValueRef} />
         </group>
     );
 }
