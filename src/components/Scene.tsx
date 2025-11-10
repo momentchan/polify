@@ -17,7 +17,7 @@ export default function Scene() {
             <BackgroundDrop position={[0, 0, -30]} scale={[30, 30, 30]} />
             <EnvironmentSetup />
 
-            <ShardSystem animationDuration={10} position={[0, 0, -6]} />
+            <ShardSystem animationDuration={10} position={[0, 0, -5]} />
 
             <Effects />
         </>

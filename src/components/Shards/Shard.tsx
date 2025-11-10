@@ -13,10 +13,22 @@ type ShardProps = ThreeElements['group'] & {
     shard: ShardInstance,
     debug?: boolean,
     animValueRef?: React.RefObject<SharedAnimationValue>,
-    onShardClick?: (position: [number, number, number]) => void
+    onShardClick?: () => void,
+    isSelected?: boolean,
+    originalDistance?: number,
+    closerDistanceOffset?: number
 }
 
-export default function Shard({ shard, debug = false, animValueRef, onShardClick, ...groupProps }: ShardProps) {
+export default function Shard({ 
+    shard, 
+    debug = false, 
+    animValueRef, 
+    onShardClick,
+    isSelected = false,
+    originalDistance = 0,
+    closerDistanceOffset = 0.3,
+    ...groupProps 
+}: ShardProps) {
     const { image, shape, cameraOffset, position: defaultPosition, scale: defaultScale, baseRotationZ } = shard
 
     const map = useTexture(image)
@@ -36,6 +48,10 @@ export default function Shard({ shard, debug = false, animValueRef, onShardClick
     const velocity = useRef<THREE.Vector3>(new THREE.Vector3())
     const isVelocityInitialized = useRef(false)
     const baseScale = useRef<THREE.Vector3>(new THREE.Vector3())
+    
+    // Position offset for selection: move closer along radial direction
+    const selectionOffset = useRef<THREE.Vector3>(new THREE.Vector3())
+    const targetOffset = useRef<THREE.Vector3>(new THREE.Vector3())
 
     const {
         position = defaultPosition,
@@ -88,12 +104,33 @@ export default function Shard({ shard, debug = false, animValueRef, onShardClick
             // Apply damping to velocity
             velocity.current.multiplyScalar(damping)
             
-            // Update position based on velocity
-            const currentPos = new THREE.Vector3(...group.current.position)
+            // Update position based on velocity (preserve initial position + velocity effects)
+            // First, remove current offset to get natural position
+            const currentPos = new THREE.Vector3(...group.current.position).sub(selectionOffset.current)
             const newPos = currentPos.clone().add(
                 velocity.current.clone().multiplyScalar(delta)
             )
-            group.current.position.copy(newPos)
+            
+            // Calculate radial direction from center to natural position
+            const radialDirection = newPos.length() > 0.001 
+                ? newPos.clone().normalize() 
+                : new THREE.Vector3(0, 0, 1)
+            
+            // Update target offset direction when selection changes (recalculate each frame for accuracy)
+            if (isSelected) {
+                // Move closer: offset towards center (negative radial direction)
+                targetOffset.current.copy(radialDirection).multiplyScalar(closerDistanceOffset)
+            } else {
+                // When deselected, return to natural position (no offset)
+                targetOffset.current.set(0, 0, 0)
+            }
+            
+            // Animate selection offset smoothly
+            const offsetLerpSpeed = 3.0; // units per second
+            selectionOffset.current.lerp(targetOffset.current, Math.min(1.0, offsetLerpSpeed * delta))
+            
+            // Apply selection offset along radial direction
+            group.current.position.copy(newPos).add(selectionOffset.current)
             
             // Scale up based on animation value (multiply base scale)
             const scaleMultiplier = THREE.MathUtils.lerp(
@@ -169,7 +206,7 @@ export default function Shard({ shard, debug = false, animValueRef, onShardClick
             mouseCurrentQuaternion.current.slerp(mouseTargetQuaternion.current, mouseLerpFactor)
             shardMirrorRef.current.quaternion.copy(mouseCurrentQuaternion.current)
         }
-    })
+    }, 1)
 
 
     return (
@@ -199,7 +236,7 @@ export default function Shard({ shard, debug = false, animValueRef, onShardClick
                 onClick={(e) => {
                     e.stopPropagation()
                     if (onShardClick) {
-                        onShardClick(defaultPosition)
+                        onShardClick()
                     }
                 }}
             />

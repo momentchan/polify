@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import Shard from "./Shard";
@@ -22,14 +22,31 @@ export default function Shards({ animValueRef }: ShardsProps) {
     const shards = useMemo(() => createShardInstances(SHARD_DATABASE), []);
     const groupRef = useRef<THREE.Group>(null!);
     
+    // Store original distances from center for each shard
+    const originalDistances = useMemo(() => {
+        return new Map<string, number>(
+            shards.map(shard => {
+                const pos = new THREE.Vector3(...shard.position);
+                return [shard.id, pos.length()];
+            })
+        );
+    }, [shards]);
+    
+    // Track selected shard (useState to trigger re-render)
+    const [selectedShardId, setSelectedShardId] = useState<string | null>(null);
+    const CLOSER_DISTANCE_OFFSET = 1.5; // Distance to move closer when selected
+    
     // Target rotation quaternion for centering clicked shard
     const targetQuaternion = useRef<THREE.Quaternion>(new THREE.Quaternion());
     const currentQuaternion = useRef<THREE.Quaternion>(new THREE.Quaternion());
     const isRotatingToTarget = useRef<boolean>(false);
 
     // Handle shard click: rotate group to center the clicked shard
-    const handleShardClick = (shardPosition: [number, number, number]) => {
+    const handleShardClick = (shardId: string, shardPosition: [number, number, number]) => {
         if (!groupRef.current) return;
+        
+        // Update selected shard
+        setSelectedShardId(shardId);
         
         // Create direction vector from origin to shard position
         const shardDirection = new THREE.Vector3(...shardPosition).normalize();
@@ -104,15 +121,23 @@ export default function Shards({ animValueRef }: ShardsProps) {
 
     return (
         <group ref={groupRef}>
-            {shards.map((shard) => (
-                <Shard
-                    key={shard.id}
-                    shard={shard}
-                    debug={false}
-                    animValueRef={animValueRef}
-                    onShardClick={handleShardClick}
-                />
-            ))}
+            {shards.map((shard) => {
+                const originalDistance = originalDistances.get(shard.id) || 0;
+                const isSelected = selectedShardId === shard.id;
+                
+                return (
+                    <Shard
+                        key={shard.id}
+                        shard={shard}
+                        debug={false}
+                        animValueRef={animValueRef}
+                        onShardClick={() => handleShardClick(shard.id, shard.position)}
+                        isSelected={isSelected}
+                        originalDistance={originalDistance}
+                        closerDistanceOffset={CLOSER_DISTANCE_OFFSET}
+                    />
+                );
+            })}
         </group>
     );
 }
