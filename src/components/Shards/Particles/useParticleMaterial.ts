@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { createParticleUniforms, type ParticleMaterialUniforms, updateParticleFresnelUniforms, type FresnelConfig } from '../shardMirrorUtils';
+import { createParticleUniforms, type ParticleMaterialUniforms, updateParticleFresnelUniforms, type FresnelConfig } from '../utils';
 import { createParticleMaterial as createMaterial } from './particleMaterial';
 
 interface UseParticleMaterialProps {

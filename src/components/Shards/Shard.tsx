@@ -6,13 +6,16 @@ import { useRef, useState } from 'react'
 import { useFrame, useThree, type ThreeElements } from '@react-three/fiber'
 import { ImagePlane } from './ImagePlane'
 import type { ShardInstance } from './types'
+import type { SharedAnimationValue } from './hooks'
+import { useShardAnimation } from './hooks'
 
 type ShardProps = ThreeElements['group'] & {
     shard: ShardInstance,
-    debug?: boolean
+    debug?: boolean,
+    animValueRef?: React.RefObject<SharedAnimationValue>
 }
 
-export default function Shard({ shard, debug = false, ...groupProps }: ShardProps) {
+export default function Shard({ shard, debug = false, animValueRef, ...groupProps }: ShardProps) {
     const { image, shape, cameraOffset, position: defaultPosition, scale: defaultScale, baseRotationZ } = shard
 
     const map = useTexture(image)
@@ -34,6 +37,12 @@ export default function Shard({ shard, debug = false, ...groupProps }: ShardProp
         scale = defaultScale,
         ...restGroupProps
     } = groupProps
+
+    // Apply shared animation if provided (hook handles undefined ref gracefully)
+    useShardAnimation({ 
+        groupRef: group as React.RefObject<THREE.Group>, 
+        animValueRef 
+    });
 
     useFrame(({ camera }) => {
         if (!group.current) return

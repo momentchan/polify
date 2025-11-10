@@ -1,9 +1,8 @@
 import { CameraControls } from "@react-three/drei";
 import EnvironmentSetup from "./EnvironmentSetup";
-import Shards from "./Shards/Shards";
 import Effects from "./Effects";
 import BackgroundDrop from "./Background/BackgroundDrop";
-import Particles from "./Shards/Particles/Particles";
+import ShardSystem from "./Shards/ShardSystem";
 
 export default function Scene() {
     return (
@@ -16,14 +15,7 @@ export default function Scene() {
             <BackgroundDrop position={[0, 0, -30]} scale={[30, 30, 30]} />
             <EnvironmentSetup />
 
-            <group position={[0, 0, -6]}>
-                <Shards />
-                <Particles shapePath="textures/shape1.svg" count={32} />
-                <Particles shapePath="textures/shape2.svg" count={32} />
-                <Particles shapePath="textures/shape3.svg" count={32} />
-                <Particles shapePath="textures/shape4.svg" count={32} />
-                <Particles shapePath="textures/shape5.svg" count={32} />
-            </group>
+            <ShardSystem animationDuration={10} position={[0, 0, -6]} />
 
             <Effects />
         </>

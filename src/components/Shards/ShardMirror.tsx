@@ -1,22 +1,18 @@
 // ShardMirrorWorld.tsx
 import * as THREE from 'three'
-import { useFrame, useLoader } from '@react-three/fiber'
+import { useFrame } from '@react-three/fiber'
 import { useEffect, useImperativeHandle, useMemo, useRef, forwardRef } from 'react'
 import { useControls } from 'leva'
-import { SVGLoader, type SVGResult } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { useTexture } from '@react-three/drei'
 
 import {
   copyUniformValues,
-  createExtrudeSettings,
   createInitialUniforms,
-  createShardGeometry,
   updateFresnelUniforms,
-  type ExtrudeSettings,
-  type FresnelConfig,
   type MaterialUniforms,
-} from './shardMirrorUtils'
+} from './utils'
 import { getSharedShardMirrorMaterial } from './shardMirrorMaterial'
+import { useShardShape, useExtrudeControls, useMaterialControls, useFresnelControls, useShardGeometry, useMaterialProperties } from './hooks'
 
 type ShardMirrorProps = React.JSX.IntrinsicElements['group'] & {
   planeRef: React.RefObject<THREE.Object3D | null>;
@@ -44,7 +40,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
 
   const meshRef = useRef<THREE.Mesh | null>(null)
 
-  const { paths } = useLoader(SVGLoader, shapePath) as SVGResult
+  const paths = useShardShape(shapePath)
   const groupRef = useRef<THREE.Group | null>(null)
 
   useImperativeHandle(ref, () => groupRef.current as THREE.Group)
@@ -52,73 +48,15 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   // Generate unique variance offset for each mirror instance
   const varianceOffset = useMemo(() => Math.random() * Math.PI * 2, [])
 
-  const {
-    depth,
-    bevelEnabled,
-    bevelThickness,
-    bevelSize,
-    bevelSegments,
-  } = useControls('Shard.Extrude', {
-    depth: { value: 0.02, min: 0, max: 0.1, step: 0.01 },
-    bevelEnabled: { value: true },
-    bevelThickness: { value: 0.01, min: 0, max: 0.1, step: 0.001 },
-    bevelSize: { value: 0.01, min: 0, max: 0.1, step: 0.001 },
-    bevelSegments: { value: 3, min: 1, max: 10, step: 1 },
-  }, { collapsed: true })
+  const extrudeConfig = useExtrudeControls('Shard')
 
   const geometryBuildTimeMs = useRef<number | null>(null)
   const uniformInitTimeMs = useRef<number | null>(null)
   const materialCreateTimeMs = useRef<number | null>(null)
 
-  const geometry = useMemo(() => {
-    const settings: ExtrudeSettings = createExtrudeSettings({
-      depth,
-      bevelEnabled,
-      bevelThickness,
-      bevelSize,
-      bevelSegments,
-    })
-    const result = createShardGeometry(paths, settings)
-    return result
-  }, [paths, depth, bevelEnabled, bevelThickness, bevelSize, bevelSegments])
+  const geometry = useShardGeometry(paths, extrudeConfig)
 
-  const {
-    roughness,
-    metalness,
-    transmission,
-    thickness,
-    ior,
-    clearcoat,
-    clearcoatRoughness,
-    reflectivity,
-    envMapIntensity,
-    sheen,
-    sheenRoughness,
-    sheenColor,
-    iridescence,
-    iridescenceIOR,
-    attenuationDistance,
-    attenuationColor,
-    bumpScale,
-  } = useControls('Shard.Material.Base', {
-    roughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
-    metalness: { value: 0.25, min: 0, max: 1, step: 0.01 },
-    transmission: { value: 0.0, min: 0, max: 1, step: 0.01 },
-    thickness: { value: 0.0, min: 0, max: 10, step: 0.1 },
-    ior: { value: 1.5, min: 1, max: 2.5, step: 0.01 },
-    clearcoat: { value: 1.0, min: 0, max: 1, step: 0.01 },
-    clearcoatRoughness: { value: 0.5, min: 0, max: 1, step: 0.01 },
-    reflectivity: { value: 1.0, min: 0, max: 1, step: 0.01 },
-    envMapIntensity: { value: 1.0, min: 0, max: 10, step: 0.1 },
-    sheen: { value: 0.0, min: 0, max: 1, step: 0.01 },
-    sheenRoughness: { value: 0.0, min: 0, max: 1, step: 0.01 },
-    sheenColor: { value: '#ffffff' },
-    iridescence: { value: 1.0, min: 0, max: 1, step: 0.01 },
-    iridescenceIOR: { value: 1.3, min: 1, max: 2.5, step: 0.01 },
-    attenuationDistance: { value: 0.0, min: 0, max: 10, step: 0.1 },
-    attenuationColor: { value: '#ffffff' },
-    bumpScale: { value: 1.0, min: 0, max: 10, step: 0.1 },
-  }, { collapsed: true })
+  const materialBase = useMaterialControls('Shard')
 
   const {
     scratchBlend,
@@ -130,25 +68,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     mappingScale: { value: 1.0, min: 0.1, max: 3.0, step: 0.01 },
   }, { collapsed: true })
 
-  const {
-    enabled: fresnelEnabled,
-    power: fresnelPower,
-    intensity: fresnelIntensity,
-    color: fresnelColor,
-  } = useControls('Shard.Material.Fresnel', {
-    enabled: { value: true },
-    power: { value: 2.5, min: 0.1, max: 5.0, step: 0.1 },
-    intensity: { value: 0.45, min: 0, max: 2.0, step: 0.01 },
-    color: { value: '#7b5ca3' },
-  }, { collapsed: true })
-
-  // Initialize uniforms
-  const fresnelConfig = useMemo<FresnelConfig>(() => ({
-    enabled: fresnelEnabled,
-    power: fresnelPower,
-    intensity: fresnelIntensity,
-    color: fresnelColor,
-  }), [fresnelEnabled, fresnelPower, fresnelIntensity, fresnelColor])
+  const fresnelConfig = useFresnelControls('Shard')
 
   const uniforms = useMemo<MaterialUniforms>(() => {
     const result = createInitialUniforms(
@@ -203,51 +123,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     uniformsRef.current.uMappingScale.value = mappingScale
   }, [blurAmount, mappingScale])
 
-  useEffect(() => {
-    const physicalMaterial = material as unknown as THREE.MeshPhysicalMaterial & {
-      sheenColor: THREE.Color;
-      attenuationColor: THREE.Color;
-    }
-
-    physicalMaterial.roughness = roughness
-    physicalMaterial.metalness = metalness
-    physicalMaterial.transmission = transmission
-    physicalMaterial.thickness = thickness
-    physicalMaterial.ior = ior
-    physicalMaterial.clearcoat = clearcoat
-    physicalMaterial.clearcoatRoughness = clearcoatRoughness
-    physicalMaterial.reflectivity = reflectivity
-    physicalMaterial.envMapIntensity = envMapIntensity
-    physicalMaterial.sheen = sheen
-    physicalMaterial.sheenRoughness = sheenRoughness
-    physicalMaterial.sheenColor.set(sheenColor)
-    physicalMaterial.iridescence = iridescence
-    physicalMaterial.iridescenceIOR = iridescenceIOR
-    physicalMaterial.attenuationDistance = attenuationDistance
-    physicalMaterial.attenuationColor.set(attenuationColor)
-    physicalMaterial.bumpScale = bumpScale
-    physicalMaterial.needsUpdate = true
-  }, [
-    material,
-    roughness,
-    metalness,
-    transmission,
-    thickness,
-    ior,
-    clearcoat,
-    clearcoatRoughness,
-    reflectivity,
-    envMapIntensity,
-    sheen,
-    sheenRoughness,
-    sheenColor,
-    iridescence,
-    iridescenceIOR,
-    attenuationDistance,
-    attenuationColor,
-    bumpScale,
-    blurAmount,
-  ])
+  useMaterialProperties(material, materialBase)
 
   useEffect(() => {
     if (!meshRef.current) return
@@ -265,11 +141,6 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
       mesh.onBeforeRender = previous
     }
   }, [material])
-
-  const framePerf = useRef({
-    total: 0,
-    frames: 0,
-  })
 
   useFrame(({ camera, clock }) => {
 

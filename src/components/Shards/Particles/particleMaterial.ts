@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import CSM from 'three-custom-shader-material/vanilla'
 
 import { INSTANCED_VERTEX_SHADER, INSTANCED_FRAGMENT_SHADER } from './instancedShaders'
-import { type ParticleMaterialUniforms } from '../shardMirrorUtils'
+import { type ParticleMaterialUniforms } from '../utils'
 
 export function createParticleMaterial(initialUniforms: ParticleMaterialUniforms): CSM<typeof THREE.MeshPhysicalMaterial> {
   // Clone uniforms to avoid sharing references between instances

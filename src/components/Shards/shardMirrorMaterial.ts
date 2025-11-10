@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import CSM from 'three-custom-shader-material/vanilla'
 
 import { shardMirrorVertexShader, shardMirrorFragmentShader } from './shardMirrorShaders'
-import { cloneMaterialUniforms, type MaterialUniforms } from './shardMirrorUtils'
+import { cloneMaterialUniforms, type MaterialUniforms } from './utils'
 
 let sharedMaterial: CSM<typeof THREE.MeshPhysicalMaterial> | null = null
 

@@ -1,12 +1,7 @@
 import { ParticleSystem, RandomSpherePositionConfig } from "@packages/particle-system";
-import { useMemo, useRef, useEffect } from "react";
-import { 
-    createExtrudeSettings, 
-    createShardGeometry,
-    type ParticleMaterialUniforms
-} from "../shardMirrorUtils";
-import { SVGLoader, SVGResult } from "three/examples/jsm/loaders/SVGLoader.js";
-import { useLoader, useFrame, useThree } from "@react-three/fiber";
+import { useMemo, useRef } from "react";
+import { type ParticleMaterialUniforms } from "../utils";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from 'three';
 import { AnimatedDampingBehavior } from "./AnimatedDampingBehavior";
@@ -14,17 +9,20 @@ import { CustomRadialVelocityConfig } from "./CustomRadialVelocityConfig";
 import { useParticleControls } from "./useParticleControls";
 import { useParticleMaterial } from "./useParticleMaterial";
 import { useParticleAnimation } from "./useParticleAnimation";
+import { useShardShape, useShardGeometry, useMaterialProperties, type SharedAnimationValue } from "../hooks";
 
 interface ParticlesProps {
     shapePath?: string;
     count?: number;
+    animValueRef?: React.RefObject<SharedAnimationValue>;
 }
 
 export default function Particles({ 
     shapePath = 'textures/shape1.svg',
-    count = 128 
+    count = 128,
+    animValueRef: externalAnimValueRef
 }: ParticlesProps) {
-    const { paths } = useLoader(SVGLoader, shapePath) as SVGResult;
+    const paths = useShardShape(shapePath);
     const scratchTex = useTexture('/textures/scratch.jpg');
     const { camera } = useThree();
     const groupRef = useRef<THREE.Group>(null!);
@@ -39,13 +37,10 @@ export default function Particles({
     }), []);
 
     // Geometry
-    const geometry = useMemo(() => {
-        const settings = createExtrudeSettings(extrudeConfig);
-        return createShardGeometry(paths, settings);
-    }, [paths, extrudeConfig]);
+    const geometry = useShardGeometry(paths, extrudeConfig);
 
     // Material
-    const { material, updateMaterialProperties } = useParticleMaterial({
+    const { material } = useParticleMaterial({
         scratchTex,
         fresnelConfig,
         scratchBlend: materialTexture.scratchBlend,
@@ -53,9 +48,7 @@ export default function Particles({
     });
 
     // Update material properties when controls change
-    useEffect(() => {
-        updateMaterialProperties(materialBase);
-    }, [material, updateMaterialProperties, materialBase]);
+    useMaterialProperties(material, materialBase);
 
     // Behavior
     const behavior = useMemo(() => {
@@ -64,11 +57,15 @@ export default function Particles({
         return b;
     }, []);
 
-    // Animation
+    // Animation - use external ref if provided, otherwise create internal one
+    const internalAnimValueRef = useRef<SharedAnimationValue>({ value: 0 });
+    const animValueRef = externalAnimValueRef || internalAnimValueRef;
+
     useParticleAnimation({
         behavior,
         material,
         groupRef,
+        animValueRef,
     });
 
     // Update camera position for fresnel

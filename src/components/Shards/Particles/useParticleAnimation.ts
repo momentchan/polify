@@ -1,31 +1,24 @@
-import { useRef, useEffect } from "react";
-import { gsap } from "gsap";
+import { useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { MathUtils } from "three";
 import * as THREE from "three";
 import type { AnimatedDampingBehavior } from "./AnimatedDampingBehavior";
-import type { ParticleMaterialUniforms } from "../shardMirrorUtils";
+import type { ParticleMaterialUniforms } from "../utils";
+import type { SharedAnimationValue } from "../hooks";
 
 interface UseParticleAnimationProps {
     behavior: AnimatedDampingBehavior;
     material: { uniforms: Record<string, { value: any }> };
     groupRef: React.RefObject<THREE.Group>;
+    animValueRef: React.RefObject<SharedAnimationValue>;
 }
 
 export function useParticleAnimation({
     behavior,
     material,
     groupRef,
+    animValueRef,
 }: UseParticleAnimationProps) {
-    const animValueRef = useRef({ value: 0 });
-
-    // GSAP animation: value goes from 0 to 1
-    useEffect(() => {
-        gsap.to(animValueRef.current, {
-            value: 1,
-            duration: 10,
-        });
-    }, []);
 
     // Initialize damping value immediately after mount
     useEffect(() => {

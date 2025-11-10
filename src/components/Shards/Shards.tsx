@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { useThree } from "@react-three/fiber";
 import Shard from "./Shard";
 import type { ShardDefinition } from "./types";
 import { createShardInstances } from "./generator";
+import type { SharedAnimationValue } from "./hooks";
 
 export const SHARD_DATABASE: ShardDefinition[] = [
     { image: "textures/img1.avif", shape: "textures/shape1.svg" },
@@ -12,7 +12,11 @@ export const SHARD_DATABASE: ShardDefinition[] = [
     { image: "textures/img5.avif", shape: "textures/shape1.svg" },
 ];
 
-export default function Shards() {
+interface ShardsProps {
+    animValueRef?: React.RefObject<SharedAnimationValue>;
+}
+
+export default function Shards({ animValueRef }: ShardsProps) {
     const shards = useMemo(() => createShardInstances(SHARD_DATABASE), []);
 
     return (
@@ -22,6 +26,7 @@ export default function Shards() {
                     key={shard.id}
                     shard={shard}
                     debug={false}
+                    animValueRef={animValueRef}
                 />
             ))}
         </>
