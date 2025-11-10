@@ -66,7 +66,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   } = useControls('Shard.Material.Texture', {
     scratchBlend: { value: 0.3, min: 0, max: 1, step: 0.01 },
     blurAmount: { value: 0.01, min: 0, max: 0.03, step: 0.001 },
-    mappingScale: { value: 1.0, min: 0.1, max: 3.0, step: 0.01 },
+    mappingScale: { value: 2.0, min: 0.1, max: 3.0, step: 0.01 },
   }, { collapsed: true })
 
   const fresnelConfig = useFresnelControls('Shard')

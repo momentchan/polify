@@ -1,9 +1,9 @@
 import type { CameraOffset, Position, ShardDefinition, ShardInstance, Vector3Tuple } from "./types";
 
-const DEFAULT_MIN_DISTANCE = 0.05;
+const DEFAULT_MIN_DISTANCE = 0.1;
 const DEFAULT_MAX_POSITION_ATTEMPTS = 100;
-const DEFAULT_RADIUS = 0.25;
-const DEFAULT_RIM = 0.2;
+const DEFAULT_RADIUS = 0.5;
+const DEFAULT_RIM = 0.5;
 
 export interface ShardGenerationConfig {
     minDistance?: number;
@@ -42,27 +42,75 @@ function calculateDistance(pos1: Position, pos2: Position): number {
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-function isValidPosition(position: Position, existingPositions: Position[], minDistance: number): boolean {
-    return existingPositions.every(existing => calculateDistance(position, existing) >= minDistance);
+function getMinDistanceToExisting(position: Position, existingPositions: Position[]): number {
+    if (existingPositions.length === 0) return Infinity;
+    return Math.min(...existingPositions.map(existing => calculateDistance(position, existing)));
 }
 
 function generatePositions(count: number, minDistance: number, radius: number, rim: number, maxAttempts: number): Position[] {
     const positions: Position[] = [];
-
-    for (let i = 0; i < count; i++) {
-        let attempts = 0;
-        let position: Position | null = null;
-        let valid = false;
-
-        while (!valid && attempts < maxAttempts) {
-            position = generateRandomPosition(radius, rim);
-            valid = isValidPosition(position, positions, minDistance);
-            attempts++;
-        }
-
-        positions.push(position || generateRandomPosition(radius, rim));
+    const minRadius = radius * (1 - rim);
+    const maxRadius = radius;
+    
+    // Sample candidate positions on the sphere surface
+    const candidateCount = Math.max(100, count * 20); // Generate many candidates
+    const candidates: Position[] = [];
+    
+    for (let i = 0; i < candidateCount; i++) {
+        const u = Math.random();
+        const v = Math.random();
+        const theta = 2 * Math.PI * u;
+        const phi = Math.acos(2 * v - 1);
+        
+        // Sample radius uniformly within rim range
+        const r = minRadius + Math.random() * (maxRadius - minRadius);
+        
+        const sinPhi = Math.sin(phi);
+        candidates.push([
+            r * sinPhi * Math.cos(theta),
+            r * sinPhi * Math.sin(theta),
+            r * Math.cos(phi)
+        ]);
     }
-
+    
+    // Farthest point sampling: iteratively add the point that maximizes minimum distance
+    for (let i = 0; i < count; i++) {
+        if (i === 0) {
+            // First point: choose randomly
+            positions.push(generateRandomPosition(radius, rim));
+        } else {
+            // Find the candidate that is farthest from all existing points
+            let bestCandidate: Position | null = null;
+            let maxMinDistance = -1;
+            
+            for (const candidate of candidates) {
+                const minDist = getMinDistanceToExisting(candidate, positions);
+                if (minDist > maxMinDistance) {
+                    maxMinDistance = minDist;
+                    bestCandidate = candidate;
+                }
+            }
+            
+            // If we found a good candidate, use it; otherwise fall back to random
+            if (bestCandidate && maxMinDistance >= minDistance) {
+                positions.push(bestCandidate);
+            } else {
+                // Fallback: try random positions with distance check
+                let attempts = 0;
+                let position: Position | null = null;
+                let valid = false;
+                
+                while (!valid && attempts < maxAttempts) {
+                    position = generateRandomPosition(radius, rim);
+                    valid = getMinDistanceToExisting(position, positions) >= minDistance;
+                    attempts++;
+                }
+                
+                positions.push(position || generateRandomPosition(radius, rim));
+            }
+        }
+    }
+    
     return positions;
 }
 

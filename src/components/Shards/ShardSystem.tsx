@@ -28,7 +28,7 @@ export default function ShardSystem({
         
         const smoothRotationSpeed = MathUtils.lerp(
             5,
-            0.5,
+            0.1,
             THREE.MathUtils.smoothstep(animValueRef.current.value, 0, 0.6)
         ) * 0.2;
         groupRef.current.rotation.y += delta * smoothRotationSpeed;

@@ -81,7 +81,7 @@ export default function Shard({ shard, debug = false, animValueRef, ...groupProp
             // Damping goes from 1.0 (no damping) to 0.95 (some damping) as animation progresses
             const damping = THREE.MathUtils.lerp(
                 1.0,
-                0.95,
+                0.9,
                 THREE.MathUtils.smoothstep(animValueRef.current.value, 0.5, 0.7)
             )
             
@@ -99,7 +99,7 @@ export default function Shard({ shard, debug = false, animValueRef, ...groupProp
             const scaleMultiplier = THREE.MathUtils.lerp(
                 0.1,
                 1.0,
-                MathUtils.smoothstep(animValueRef.current.value, 0.2, 1)
+                MathUtils.smoothstep(animValueRef.current.value, 0.2, 0.6)
             )
             group.current.scale.copy(baseScale.current).multiplyScalar(scaleMultiplier)
         }
@@ -127,29 +127,23 @@ export default function Shard({ shard, debug = false, animValueRef, ...groupProp
 
         // When hovered, face camera directly using only X and Y rotation (no Z-axis rotation)
         // When not hovered, apply camera offset rotation
-        if (hovered) {
-            // Calculate pitch (X rotation) and yaw (Y rotation) from direction
-            // Forward is (0, 0, 1), so we calculate angles relative to that
-            const pitch = Math.asin(-direction.y) // X-axis rotation (pitch)
-            const yaw = Math.atan2(direction.x, direction.z) // Y-axis rotation (yaw)
-            
-            // Create quaternion from only pitch and yaw (no roll/Z rotation)
-            cameraTargetQuaternion.current.setFromEuler(
-                new THREE.Euler(pitch, yaw, 0, 'XYZ')
-            )
-        } else {
-            // Apply camera offset rotation
+        // Apply camera offset rotation when not hovered
+        if (!hovered) {
             const offsetQuaternion = new THREE.Quaternion().setFromEuler(
                 new THREE.Euler(cameraOffset[0], cameraOffset[1], cameraOffset[2])
             )
             direction.applyQuaternion(offsetQuaternion)
-            
-            // Calculate target quaternion with offset
-            cameraTargetQuaternion.current.setFromUnitVectors(
-                new THREE.Vector3(0, 0, 1), // forward direction
-                direction
-            )
         }
+        
+        // Calculate pitch (X rotation) and yaw (Y rotation) from direction
+        // Avoid z-axis rotation by only using pitch and yaw
+        const pitch = Math.asin(-direction.y) // X-axis rotation (pitch)
+        const yaw = Math.atan2(direction.x, direction.z) // Y-axis rotation (yaw)
+        
+        // Create quaternion from only pitch and yaw (no roll/Z rotation)
+        cameraTargetQuaternion.current.setFromEuler(
+            new THREE.Euler(pitch, yaw, 0, 'XYZ')
+        )
 
         // When hovered, rotate directly to camera (fast), otherwise slow tracking
         const cameraLerpFactor = hovered ? 0.3 : 0.05
