@@ -77,7 +77,7 @@ function generateCameraOffset(): CameraOffset {
 
 function generateScales(count: number): Vector3Tuple[] {
     return Array.from({ length: count }, () => {
-        const xy = Math.random() * 0.2 + 1.5;
+        const xy = Math.random() * 0.2 + 2;
         return [xy, xy, 1] as Vector3Tuple;
     });
 }

@@ -1,3 +1,6 @@
 [submodule "packages/r3f-gist"]
 	path = packages/r3f-gist
 	url = https://github.com/momentchan/r3f-gist.git
+[submodule "packages/particle-system"]
+	path = packages/particle-system
+	url = https://github.com/momentchan/particle-system.git

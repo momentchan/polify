@@ -66,13 +66,11 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     bevelSegments: { value: 3, min: 1, max: 10, step: 1 },
   }, { collapsed: true })
 
-  const perfNow = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
   const geometryBuildTimeMs = useRef<number | null>(null)
   const uniformInitTimeMs = useRef<number | null>(null)
   const materialCreateTimeMs = useRef<number | null>(null)
 
   const geometry = useMemo(() => {
-    const start = perfNow()
     const settings: ExtrudeSettings = createExtrudeSettings({
       depth,
       bevelEnabled,
@@ -81,7 +79,6 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
       bevelSegments,
     })
     const result = createShardGeometry(paths, settings)
-    geometryBuildTimeMs.current = perfNow() - start
     return result
   }, [paths, depth, bevelEnabled, bevelThickness, bevelSize, bevelSegments])
 
@@ -154,7 +151,6 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   }), [fresnelEnabled, fresnelPower, fresnelIntensity, fresnelColor])
 
   const uniforms = useMemo<MaterialUniforms>(() => {
-    const start = perfNow()
     const result = createInitialUniforms(
       map,
       scratchTex,
@@ -163,7 +159,6 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
       blurAmount,
       mappingScale
     )
-    uniformInitTimeMs.current = perfNow() - start
     return result
   }, [map, scratchTex, fresnelConfig, scratchBlend, blurAmount, mappingScale])
 
@@ -173,9 +168,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   }, [uniforms])
 
   const material = useMemo(() => {
-    const start = perfNow()
     const result = getSharedShardMirrorMaterial(uniforms)
-    materialCreateTimeMs.current = perfNow() - start
     return result
   }, [uniforms])
 
@@ -279,7 +272,6 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   })
 
   useFrame(({ camera, clock }) => {
-    const start = debugPerf ? perfNow() : 0
 
     if (!planeRef.current) return
 
@@ -320,19 +312,6 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
       // Subtle position oscillation with variance offset
       meshRef.current.position.x = Math.sin(time * positionSpeed * 0.6 + varianceOffset * 0.8) * positionAmount * 0.5
       meshRef.current.position.y = Math.cos(time * positionSpeed * 0.8 + varianceOffset * 1.1) * positionAmount * 0.5
-    }
-
-    if (debugPerf) {
-      const elapsed = perfNow() - start
-      framePerf.current.total += elapsed
-      framePerf.current.frames += 1
-
-      if (framePerf.current.frames >= 120) {
-        const average = framePerf.current.total / framePerf.current.frames
-        console.info(`[ShardMirror] average useFrame update: ${average.toFixed(3)}ms over ${framePerf.current.frames} frames`)
-        framePerf.current.total = 0
-        framePerf.current.frames = 0
-      }
     }
   })
 
