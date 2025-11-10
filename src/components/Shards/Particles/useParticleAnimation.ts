@@ -32,8 +32,8 @@ export function useParticleAnimation({
         // Calculate damping based on animation value
         const damping = MathUtils.lerp(
             1,
-            0.95,
-            THREE.MathUtils.smoothstep(animValueRef.current.value, 0.5, 0.7)
+            0.9,
+            THREE.MathUtils.smoothstep(animValueRef.current.value, 0.5, 0.6)
         );
         behavior.dampingUniform.value = damping;
 

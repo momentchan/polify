@@ -27,9 +27,9 @@ export default function ShardSystem({
         if (!groupRef.current || !animValueRef.current) return;
         
         const smoothRotationSpeed = MathUtils.lerp(
-            10,
+            5,
             0.5,
-            THREE.MathUtils.smoothstep(animValueRef.current.value, 0, 0.8)
+            THREE.MathUtils.smoothstep(animValueRef.current.value, 0, 0.6)
         ) * 0.2;
         groupRef.current.rotation.y += delta * smoothRotationSpeed;
     });

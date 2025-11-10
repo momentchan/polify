@@ -102,6 +102,9 @@ export const shardMirrorFragmentShader = /* glsl */`
 
     col.rgb = mix(col.rgb, BlendScreen(col.rgb, scratchGray), uScratchBlend);
 
+    // Clamp color to prevent HDR overflow that causes bloom flickering
+    col.rgb = clamp(col.rgb, vec3(0.0), vec3(65504.));
+    
     csm_DiffuseColor = vec4(col.rgb, 1.0);
   }
 `

@@ -13,15 +13,16 @@ import {
 } from './utils'
 import { getSharedShardMirrorMaterial } from './shardMirrorMaterial'
 import { useShardShape, useExtrudeControls, useMaterialControls, useFresnelControls, useShardGeometry, useMaterialProperties } from './hooks'
+import type { SharedAnimationValue } from './hooks/useSharedAnimation'
 
 type ShardMirrorProps = React.JSX.IntrinsicElements['group'] & {
   planeRef: React.RefObject<THREE.Object3D | null>;
   map: THREE.Texture;
   shapePath: string;
   baseRotationZ?: number;
-  debugPerf?: boolean;
   onHoverEnter?: () => void;
   onHoverLeave?: () => void;
+  animValueRef?: React.RefObject<SharedAnimationValue>
 };
 
 export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
@@ -29,10 +30,10 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   map,
   shapePath,
   baseRotationZ = 0,
-  debugPerf = false,
   onHoverEnter,
   onHoverLeave,
   children,
+  animValueRef,
   ...groupProps
 }, ref) => {
 
@@ -93,8 +94,6 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
   }, [uniforms])
 
   useEffect(() => {
-    if (!debugPerf) return
-
     const geometryTime = geometryBuildTimeMs.current
     const uniformsTime = uniformInitTimeMs.current
     const materialTime = materialCreateTimeMs.current
@@ -110,7 +109,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     if (materialTime != null) {
       console.info(`[ShardMirror] material clone created in ${materialTime.toFixed(2)}ms`)
     }
-  }, [debugPerf, shapePath])
+  }, [shapePath])
 
   // Update fresnel uniforms when controls change
   useEffect(() => {
@@ -172,7 +171,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     if (meshRef.current) {
       const time = clock.elapsedTime
       const rotationSpeed = 0.5
-      const rotationAmount = 0.05
+      const rotationAmount = 0.05 + THREE.MathUtils.lerp(20, 0, THREE.MathUtils.smoothstep(animValueRef?.current?.value || 0, 0, 0.6))
       const positionSpeed = 0.5
       const positionAmount = 0.2
 

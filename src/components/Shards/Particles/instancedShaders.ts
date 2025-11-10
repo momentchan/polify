@@ -149,6 +149,9 @@ void main() {
   
   col = mix(col, BlendScreen(col, scratchGray), uScratchBlend);
   
+  // Clamp color to prevent HDR overflow that causes bloom flickering
+  col = clamp(col, vec3(0.0), vec3(65504.));
+  
   csm_DiffuseColor = vec4(col, 1.0);
 }
 `;

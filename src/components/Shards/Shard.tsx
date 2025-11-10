@@ -7,7 +7,6 @@ import { useFrame, useThree, type ThreeElements } from '@react-three/fiber'
 import { ImagePlane } from './ImagePlane'
 import type { ShardInstance } from './types'
 import type { SharedAnimationValue } from './hooks'
-import { useShardAnimation } from './hooks'
 import { MathUtils } from 'three'
 
 type ShardProps = ThreeElements['group'] & {
@@ -54,12 +53,6 @@ export default function Shard({ shard, debug = false, animValueRef, ...groupProp
             baseScale.current.copy(scale)
         }
     }, [scale])
-
-    // Apply shared animation if provided (hook handles undefined ref gracefully)
-    useShardAnimation({ 
-        groupRef: group as React.RefObject<THREE.Group>, 
-        animValueRef 
-    });
 
     // Initialize explosive velocity: outward from initial position
     useEffect(() => {
@@ -197,7 +190,7 @@ export default function Shard({ shard, debug = false, animValueRef, ...groupProp
                 shapePath={shape} 
                 baseRotationZ={baseRotationZ} 
                 position={[0, 0, 0]} 
-                debugPerf={debug}
+                animValueRef={animValueRef}
                 onHoverEnter={() => {
                     setHovered(true)
                     document.body.style.cursor = 'pointer'
