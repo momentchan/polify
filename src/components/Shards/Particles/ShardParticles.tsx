@@ -29,10 +29,10 @@ export default function ShardParticles({
     // Controls
     const { extrudeConfig, materialBase, materialTexture, fresnelConfig } = useParticleControls();
 
-    // Particle configuration
+    // Particle configuration - super explosion with high initial velocity
     const config = useMemo(() => ({
-        position: new RandomSpherePositionConfig(0.05, [0, 0, 0]),
-        velocity: new CustomRadialVelocityConfig(2, [0, 0, 0], 0.3),
+        position: new RandomSpherePositionConfig(0.01, [0, 0, 0]),
+        velocity: new CustomRadialVelocityConfig(15, [0, 0, 0], 0.3), // Increased from 2 to 15 for super explosion
     }), []);
 
     // Geometry
@@ -64,7 +64,8 @@ export default function ShardParticles({
             uniformsRef.current.velocityTex.value = materialUniforms.velocityTex.value;
         }
         uniformsRef.current.time.value = state.clock.elapsedTime;
-        uniformsRef.current.delta.value = delta;
+        // Delta is already scaled in useParticleAnimation, so use the scaled version from material
+        uniformsRef.current.delta.value = materialUniforms.delta?.value ?? delta;
         uniformsRef.current.instanceCount.value = count;
     });
 

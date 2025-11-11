@@ -22,8 +22,8 @@ export default function Effects() {
 
   const bloomParams = useControls('Effects.Bloom', {
     enabled: { value: true, label: 'Enable Bloom' },
-    intensity: { value: 0.5, min: 0, max: 3, step: 0.01 },
-    luminanceThreshold: { value: 0, min: 0, max: 1, step: 0.01 },
+    intensity: { value: 0.7, min: 0, max: 3, step: 0.01 },
+    luminanceThreshold: { value: 0.45, min: 0, max: 1, step: 0.01 },
     luminanceSmoothing: { value: 0.025, min: 0, max: 0.1, step: 0.001 },
     mipmapBlur: true
   }, { collapsed: true });

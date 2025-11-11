@@ -2,12 +2,39 @@
 import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { ShardMirror } from './ShardMirror'
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { useFrame, useThree, type ThreeElements } from '@react-three/fiber'
 import { ImagePlane } from './ImagePlane'
 import type { ShardInstance } from './types'
 import type { SharedAnimationValue } from './hooks'
 import { MathUtils } from 'three'
+
+// Time scale configuration for explosion effect
+interface ShardTimeScaleConfig {
+    explosionEnd: number;
+    transitionEnd: number;
+    explosionTimeScale: number;
+    transitionStartTimeScale: number;
+    transitionEndTimeScale: number;
+    slowMotionStartTimeScale: number;
+    slowMotionEndTimeScale: number;
+    deltaSmoothingFactor?: number;
+    maxDelta?: number;
+    timeScaleSmoothingFactor?: number;
+}
+
+const DEFAULT_SHARD_TIME_SCALE_CONFIG: ShardTimeScaleConfig = {
+    explosionEnd: 0.15,
+    transitionEnd: 0.22,
+    explosionTimeScale: 1.0,
+    transitionStartTimeScale: 1.0,
+    transitionEndTimeScale: 0.1,
+    slowMotionStartTimeScale: 0.01,
+    slowMotionEndTimeScale: 0.001,
+    deltaSmoothingFactor: 0.1,
+    maxDelta: 0.1,
+    timeScaleSmoothingFactor: 0.2,
+};
 
 type ShardProps = ThreeElements['group'] & {
     shard: ShardInstance,
@@ -16,7 +43,8 @@ type ShardProps = ThreeElements['group'] & {
     onShardClick?: () => void,
     isSelected?: boolean,
     originalDistance?: number,
-    closerDistanceOffset?: number
+    closerDistanceOffset?: number,
+    timeScaleConfig?: Partial<ShardTimeScaleConfig>
 }
 
 export default function Shard({ 
@@ -27,6 +55,7 @@ export default function Shard({
     isSelected = false,
     originalDistance = 0,
     closerDistanceOffset = 0.3,
+    timeScaleConfig = {},
     ...groupProps 
 }: ShardProps) {
     const { image, shape, cameraOffset, position: defaultPosition, scale: defaultScale, baseRotationZ } = shard
@@ -44,7 +73,18 @@ export default function Shard({
     const { pointer } = useThree()
     const [hovered, setHovered] = useState(false)
     
-    // Explosive motion: initial velocity and damping
+    // Merge time scale config with defaults
+    const config = useMemo(() => ({ ...DEFAULT_SHARD_TIME_SCALE_CONFIG, ...timeScaleConfig }), [timeScaleConfig])
+    
+    // Calculate transition window sizes
+    const transitionWindow = config.transitionEnd - config.explosionEnd
+    const slowMotionDuration = 1.0 - config.transitionEnd
+    
+    // Delta smoothing refs
+    const smoothedDeltaRef = useRef<number>(0.016) // Start with ~60fps delta
+    const smoothedTimeScaleRef = useRef<number>(config.explosionTimeScale)
+    
+    // Explosive motion: initial velocity (no damping - use time scale instead)
     const velocity = useRef<THREE.Vector3>(new THREE.Vector3())
     const isVelocityInitialized = useRef(false)
     const baseScale = useRef<THREE.Vector3>(new THREE.Vector3())
@@ -82,7 +122,7 @@ export default function Shard({
                     Math.random() - 0.5,
                     Math.random() - 0.5
                 ).normalize()
-            const initialSpeed = 0.5 // Initial outward speed (similar to ShardParticles)
+            const initialSpeed = 5 // Increased speed for super explosion (matching particles)
             velocity.current.copy(direction).multiplyScalar(initialSpeed)
             isVelocityInitialized.current = true
         }
@@ -91,24 +131,53 @@ export default function Shard({
     useFrame(({ camera }, delta) => {
         if (!group.current) return
 
-        // Apply explosive motion: update position based on velocity with damping
+        // Apply explosive motion with time scale (same as particles)
         if (animValueRef?.current) {
-            // Calculate damping based on animation value (similar to ShardParticles)
-            // Damping goes from 1.0 (no damping) to 0.95 (some damping) as animation progresses
-            const damping = THREE.MathUtils.lerp(
-                1.0,
-                0.9,
-                THREE.MathUtils.smoothstep(animValueRef.current.value, 0.5, 0.7)
+            const animValue = animValueRef.current.value
+            
+            // Stabilize delta: clamp to max and apply exponential smoothing
+            const clampedDelta = Math.min(delta, config.maxDelta ?? 0.1)
+            const smoothingFactor = config.deltaSmoothingFactor ?? 0.1
+            smoothedDeltaRef.current = MathUtils.lerp(
+                smoothedDeltaRef.current,
+                clampedDelta,
+                smoothingFactor
             )
             
-            // Apply damping to velocity
-            velocity.current.multiplyScalar(damping)
+            // Calculate target time scale based on animation value
+            let targetTimeScale: number
             
-            // Update position based on velocity (preserve initial position + velocity effects)
-            // First, remove current offset to get natural position
+            if (animValue < config.explosionEnd) {
+                // Explosion phase - normal time speed
+                targetTimeScale = config.explosionTimeScale
+            } else if (animValue < config.transitionEnd) {
+                // Transition to slow motion
+                const transitionProgress = (animValue - config.explosionEnd) / transitionWindow
+                const eased = THREE.MathUtils.smoothstep(transitionProgress, 0, 1)
+                targetTimeScale = MathUtils.lerp(config.transitionStartTimeScale, config.transitionEndTimeScale, eased)
+            } else {
+                // Slow motion phase
+                const slowMotionProgress = (animValue - config.transitionEnd) / slowMotionDuration
+                const eased = THREE.MathUtils.smoothstep(slowMotionProgress, 0, 1)
+                targetTimeScale = MathUtils.lerp(config.slowMotionStartTimeScale, config.slowMotionEndTimeScale, eased)
+            }
+            
+            // Smooth timeScale transitions to prevent sudden jumps
+            const timeScaleSmoothing = config.timeScaleSmoothingFactor ?? 0.2
+            smoothedTimeScaleRef.current = MathUtils.lerp(
+                smoothedTimeScaleRef.current,
+                targetTimeScale,
+                timeScaleSmoothing
+            )
+            
+            const timeScale = smoothedTimeScaleRef.current
+            
+            // No damping - particles maintain velocity, slow motion via delta scaling
+            // Update position based on velocity with scaled delta (time dilation)
             const currentPos = new THREE.Vector3(...group.current.position).sub(selectionOffset.current)
+            const scaledDelta = smoothedDeltaRef.current * timeScale
             const newPos = currentPos.clone().add(
-                velocity.current.clone().multiplyScalar(delta)
+                velocity.current.clone().multiplyScalar(scaledDelta)
             )
             
             // Calculate radial direction from center to natural position
@@ -125,9 +194,9 @@ export default function Shard({
                 targetOffset.current.set(0, 0, 0)
             }
             
-            // Animate selection offset smoothly
+            // Animate selection offset smoothly (use scaled delta for slow motion consistency)
             const offsetLerpSpeed = 3.0; // units per second
-            selectionOffset.current.lerp(targetOffset.current, Math.min(1.0, offsetLerpSpeed * delta))
+            selectionOffset.current.lerp(targetOffset.current, Math.min(1.0, offsetLerpSpeed * scaledDelta))
             
             // Apply selection offset along radial direction
             group.current.position.copy(newPos).add(selectionOffset.current)
