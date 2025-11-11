@@ -8,6 +8,8 @@ interface UseParticleMaterialProps {
     fresnelConfig: FresnelConfig;
     scratchBlend: number;
     instanceCount: number;
+    sizeMultiplier?: number;
+    fresnelColor?: string;
 }
 
 interface UseParticleMaterialReturn {
@@ -41,16 +43,19 @@ export function useParticleMaterial({
     fresnelConfig,
     scratchBlend,
     instanceCount,
+    sizeMultiplier = 0.3,
 }: UseParticleMaterialProps): UseParticleMaterialReturn {
     // Initialize uniforms
     const uniforms = useMemo<ParticleMaterialUniforms>(() => {
-        return createParticleUniforms(
+        const uniform = createParticleUniforms(
             scratchTex,
             fresnelConfig,
             scratchBlend,
             instanceCount
         );
-    }, [scratchTex, fresnelConfig, scratchBlend, instanceCount]);
+        uniform.sizeMultiplier.value = sizeMultiplier;
+        return uniform;
+    }, [scratchTex, fresnelConfig, scratchBlend, instanceCount, sizeMultiplier]);
 
     // Store uniforms in ref for onBeforeRender updates
     const uniformsRef = useRef(uniforms);
@@ -72,6 +77,11 @@ export function useParticleMaterial({
     useEffect(() => {
         uniformsRef.current.uScratchBlend.value = scratchBlend;
     }, [scratchBlend]);
+
+    // Update size multiplier when prop changes (update ref, not material directly)
+    useEffect(() => {
+        uniformsRef.current.sizeMultiplier.value = sizeMultiplier;
+    }, [sizeMultiplier]);
 
     // Function to update material properties
     const updateMaterialProperties = (props: MaterialProperties) => {

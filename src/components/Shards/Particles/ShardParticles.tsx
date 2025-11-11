@@ -15,12 +15,16 @@ interface ShardParticlesProps {
     shapePath?: string;
     count?: number;
     animValueRef?: React.RefObject<SharedAnimationValue>;
+    sizeMultiplier?: number;
+    fresnelColor?: string;
 }
 
 export default function ShardParticles({ 
     shapePath = 'textures/shape1.svg',
     count = 128,
-    animValueRef: externalAnimValueRef
+    animValueRef: externalAnimValueRef,
+    sizeMultiplier = 0.3,
+    fresnelColor
 }: ShardParticlesProps) {
     const paths = useShardShape(shapePath);
     const scratchTex = useTexture('/textures/scratch.jpg');
@@ -44,6 +48,8 @@ export default function ShardParticles({
         fresnelConfig,
         scratchBlend: materialTexture.scratchBlend,
         instanceCount: count,
+        sizeMultiplier,
+        fresnelColor,
     });
 
     // Update material properties when controls change

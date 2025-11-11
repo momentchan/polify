@@ -91,6 +91,10 @@ void main() {
   // Apply rotation to local position
   vec3 rotatedPos = (rotMat * vec4(lpos, 1.0)).xyz;
   
+  // Rotate the normal by the same rotation matrix as the geometry
+  // This is critical for correct lighting/reflections, especially with metallic materials
+  vec3 rotatedNormal = normalize((rotMat * vec4(normal, 0.0)).xyz);
+  
   // Add particle world position from texture
   vec3 newPos = rotatedPos + pos.xyz;
   
@@ -101,9 +105,24 @@ void main() {
   vec4 worldPos = modelMatrix * instancePos;
   vWpos = worldPos.xyz;
   
-  // Transform normal to world space (CSM may already define objectNormal/transformedNormal)
-  vec3 worldNormal = normalize(mat3(modelMatrix) * normal);
+  // Transform rotated normal to world space using normalMatrix (handles non-uniform scaling)
+  // normalMatrix = inverse transpose of modelMatrix, needed for correct normal transformation
+  vec3 worldNormal = normalize(mat3(normalMatrix) * rotatedNormal);
   vWnorml = worldNormal;
+  
+  // Override CSM's csm_Normal to ensure consistent lighting on both sides
+  // For DoubleSide materials, we want the base material to always see an outward-facing normal
+  // Transform to view space to detect back faces
+  vec3 viewSpaceNormal = normalize((modelViewMatrix * vec4(rotatedNormal, 0.0)).xyz);
+  vec3 viewSpacePos = (modelViewMatrix * instancePos).xyz;
+  // If normal points away from camera (back face), flip it
+  // This ensures CSM's base material sees consistent normals for lighting/reflections
+  vec3 finalNormal = rotatedNormal;
+  if (dot(viewSpaceNormal, normalize(-viewSpacePos)) < 0.0) {
+    finalNormal = -rotatedNormal;
+  }
+  // CSM uses csm_Normal - set it to our rotated/flipped normal transformed to world space
+  csm_Normal = normalize(normalMatrix * finalNormal);
   
   // Pass UV coordinates (use the actual UV attribute)
   vUv = uv;
