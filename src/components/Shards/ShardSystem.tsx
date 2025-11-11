@@ -36,9 +36,9 @@ export default function ShardSystem({
 
     return (
         <>
-            <group position={position}>
+            {/* <group position={position}>
                 <Shards animValueRef={animValueRef} />
-            </group>
+            </group> */}
 
             <group ref={groupRef} position={position}>
                 <ShardParticles shapePath="textures/shape1.svg" count={256} animValueRef={animValueRef} />

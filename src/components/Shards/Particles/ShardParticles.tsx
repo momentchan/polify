@@ -32,7 +32,7 @@ export default function ShardParticles({
     // Particle configuration - super explosion with high initial velocity
     const config = useMemo(() => ({
         position: new RandomSpherePositionConfig(0.01, [0, 0, 0]),
-        velocity: new CustomRadialVelocityConfig(15, [0, 0, 0], 0.3), // Increased from 2 to 15 for super explosion
+        velocity: new CustomRadialVelocityConfig(15, [0, 0, 0], 0.3),
     }), []);
 
     // Geometry
