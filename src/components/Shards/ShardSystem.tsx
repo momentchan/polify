@@ -31,14 +31,14 @@ export default function ShardSystem({
             0.02,
             THREE.MathUtils.smoothstep(animValueRef.current.value, 0, 0.2)
         ) * 0.2;
-        groupRef.current.rotation.y += delta * smoothRotationSpeed;
+        // groupRef.current.rotation.y += delta * smoothRotationSpeed;
     });
 
     return (
         <>
-            {/* <group position={position}>
+            <group position={position}>
                 <Shards animValueRef={animValueRef} />
-            </group> */}
+            </group>
 
             <group ref={groupRef} position={position}>
                 <ShardParticles shapePath="textures/shape1.svg" count={256} animValueRef={animValueRef} />

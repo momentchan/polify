@@ -173,7 +173,7 @@ export const ShardMirror = forwardRef<THREE.Group, ShardMirrorProps>(({
     if (meshRef.current) {
       const time = clock.elapsedTime
       const rotationSpeed = 0.5
-      const rotationAmount = 0.05 + THREE.MathUtils.lerp(20, 0, THREE.MathUtils.smoothstep(animValueRef?.current?.value || 0, 0, 0.6))
+      const rotationAmount = 0.05 + THREE.MathUtils.lerp(7, 0, THREE.MathUtils.smoothstep(animValueRef?.current?.value || 0, 0, 1))
       const positionSpeed = 0.5
       const positionAmount = 0.2
 

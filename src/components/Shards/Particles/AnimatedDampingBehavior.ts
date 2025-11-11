@@ -108,7 +108,7 @@ export class AnimatedDampingBehavior extends ParticleBehavior {
             float t2 = smoothstep(distance2, distance3, d);
             float timeScale12 = mix(timeScale1, timeScale2, t1);
             float timeScale23 = mix(timeScale2, timeScale3, t2);
-            float distanceTimeScale = mix(timeScale12, timeScale23, step(distance2, d));
+            float distanceTimeScale = max(mix(timeScale12, timeScale23, step(distance2, d)), 0.05);
             
             float scaledDelta = delta * distanceTimeScale * rotationMultiplier;
             vel.w += scaledDelta;
