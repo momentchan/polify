@@ -205,8 +205,7 @@ export function ShardHoverInfo({
         // Update info panel content
         const titleHtml = title ? `<div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">${title}</div>` : ''
         const infoHtml = info ? `<div style="margin-bottom: 8px; font-size: 12px; color: rgba(255, 255, 255, 0.8);">${info}</div>` : ''
-        const positionHtml = `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 10px; color: rgba(255, 255, 255, 0.6);"><strong>Position:</strong> (${shardPosition[0].toFixed(2)}, ${shardPosition[1].toFixed(2)}, ${shardPosition[2].toFixed(2)})</div>`
-        infoDiv.innerHTML = titleHtml + infoHtml + positionHtml
+        infoDiv.innerHTML = titleHtml + infoHtml
         
         // Get info panel screen position for line calculation
         const rect = infoDiv.getBoundingClientRect()

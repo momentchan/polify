@@ -42,9 +42,9 @@ export default function ShardSystem({
 
             <group ref={groupRef} position={position}>
                 <ShardParticles shapePath="textures/shape1.svg" count={16} animValueRef={animValueRef} sizeMultiplier={1} />
-                <ShardParticles shapePath="textures/shape2.svg" count={256} animValueRef={animValueRef} />
-                <ShardParticles shapePath="textures/shape3.svg" count={256} animValueRef={animValueRef} />
-                <ShardParticles shapePath="textures/shape4.svg" count={256} animValueRef={animValueRef} />
+                <ShardParticles shapePath="textures/shape2.svg" count={128} animValueRef={animValueRef} />
+                <ShardParticles shapePath="textures/shape3.svg" count={128} animValueRef={animValueRef} />
+                <ShardParticles shapePath="textures/shape4.svg" count={128} animValueRef={animValueRef} />
             </group>
         </>
     );
