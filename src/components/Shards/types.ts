@@ -5,6 +5,8 @@ export type CameraOffset = Vector3Tuple;
 export interface ShardDefinition {
     image: string;
     shape: string;
+    title?: string;
+    info?: string;
 }
 
 export interface ShardInstance extends ShardDefinition {

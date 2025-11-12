@@ -7,11 +7,11 @@ import { createShardInstances } from "./generator";
 import type { SharedAnimationValue } from "./hooks";
 
 export const SHARD_DATABASE: ShardDefinition[] = [
-    { image: "textures/img1.avif", shape: "textures/shape1.svg" },
-    { image: "textures/img2.avif", shape: "textures/shape2.svg" },
-    { image: "textures/img3.avif", shape: "textures/shape3.svg" },
-    { image: "textures/img4.avif", shape: "textures/shape4.svg" },
-    { image: "textures/img5.avif", shape: "textures/shape1.svg" },
+    { image: "textures/img1.avif", shape: "textures/shape1.svg", title: "Project 1", info: "First project information" },
+    { image: "textures/img2.avif", shape: "textures/shape2.svg", title: "Project 2", info: "Second project information" },
+    { image: "textures/img3.avif", shape: "textures/shape3.svg", title: "Project 3", info: "Third project information" },
+    { image: "textures/img4.avif", shape: "textures/shape4.svg", title: "Project 4", info: "Fourth project information" },
+    { image: "textures/img5.avif", shape: "textures/shape1.svg", title: "Project 5", info: "Fifth project information" },
 ];
 
 interface ShardsProps {
@@ -39,7 +39,7 @@ export default function Shards({ animValueRef }: ShardsProps) {
     // Target rotation quaternion for centering clicked shard
     const targetQuaternion = useRef<THREE.Quaternion>(new THREE.Quaternion());
     const currentQuaternion = useRef<THREE.Quaternion>(new THREE.Quaternion());
-    const isRotatingToTarget = useRef<boolean>(false);
+    const [isRotatingToTarget, setIsRotatingToTarget] = useState<boolean>(false);
 
     // Handle shard click: rotate group to center the clicked shard
     const handleShardClick = (shardId: string, shardPosition: [number, number, number]) => {
@@ -65,7 +65,7 @@ export default function Shards({ animValueRef }: ShardsProps) {
         targetQuaternion.current.copy(rotationQuaternion);
         rotationProgress.current = 0;
         rotationDuration.current = 0;
-        isRotatingToTarget.current = true;
+        setIsRotatingToTarget(true);
     };
 
     // Rotation progress tracking for easing
@@ -78,7 +78,7 @@ export default function Shards({ animValueRef }: ShardsProps) {
         if (!groupRef.current || !animValueRef?.current) return;
         
         // If rotating to target, smoothly interpolate with ease-in-out
-        if (isRotatingToTarget.current) {
+        if (isRotatingToTarget) {
             const totalDuration = 1.0; // seconds
             
             // Initialize rotation progress on first frame
@@ -99,7 +99,7 @@ export default function Shards({ animValueRef }: ShardsProps) {
                 // Reset rotation state
                 rotationProgress.current = 0;
                 rotationDuration.current = 0;
-                isRotatingToTarget.current = false;
+                setIsRotatingToTarget(false);
             } else {
                 // Apply ease-in-out easing: smoothstep function
                 // smoothstep(t) = 3t² - 2t³, which gives smooth acceleration and deceleration
@@ -135,6 +135,7 @@ export default function Shards({ animValueRef }: ShardsProps) {
                         isSelected={isSelected}
                         originalDistance={originalDistance}
                         closerDistanceOffset={CLOSER_DISTANCE_OFFSET}
+                        isRotating={isRotatingToTarget}
                     />
                 );
             })}

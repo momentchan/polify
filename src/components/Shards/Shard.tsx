@@ -8,6 +8,7 @@ import { ImagePlane } from './ImagePlane'
 import type { ShardInstance } from './types'
 import type { SharedAnimationValue } from './hooks'
 import { MathUtils } from 'three'
+import { ShardHoverInfo } from './ShardHoverInfo'
 
 // Distance-based slow motion configuration for explosion effect
 interface ShardDistanceSlowMotionConfig {
@@ -40,19 +41,21 @@ type ShardProps = ThreeElements['group'] & {
     isSelected?: boolean,
     originalDistance?: number,
     closerDistanceOffset?: number,
-    distanceConfig?: Partial<ShardDistanceSlowMotionConfig>
+    distanceConfig?: Partial<ShardDistanceSlowMotionConfig>,
+    isRotating?: boolean
 }
 
-export default function Shard({ 
-    shard, 
-    debug = false, 
-    animValueRef, 
+export default function Shard({
+    shard,
+    debug = false,
+    animValueRef,
     onShardClick,
     isSelected = false,
     originalDistance = 0,
     closerDistanceOffset = 0.3,
     distanceConfig = {},
-    ...groupProps 
+    isRotating = false,
+    ...groupProps
 }: ShardProps) {
     const { image, shape, cameraOffset, position: defaultPosition, scale: defaultScale, baseRotationZ } = shard
 
@@ -68,6 +71,7 @@ export default function Shard({
     const mouseCurrentQuaternion = useRef(new THREE.Quaternion())
     const { pointer } = useThree()
     const [hovered, setHovered] = useState(false)
+    const [currentWorldPosition, setCurrentWorldPosition] = useState<[number, number, number]>([0, 0, 0])
     
     // Merge distance config with defaults
     const config = useMemo(() => ({ ...DEFAULT_SHARD_DISTANCE_CONFIG, ...distanceConfig }), [distanceConfig])
@@ -212,6 +216,12 @@ export default function Shard({
         group.current.updateWorldMatrix(true, false)
         const worldPosition = new THREE.Vector3()
         group.current.getWorldPosition(worldPosition)
+        
+        // Update current world position for hover info (only when hovered to avoid unnecessary updates)
+        if (hovered) {
+            setCurrentWorldPosition([worldPosition.x, worldPosition.y, worldPosition.z])
+        }
+        
         const worldQuaternion = new THREE.Quaternion()
         group.current.getWorldQuaternion(worldQuaternion)
 
@@ -277,20 +287,20 @@ export default function Shard({
 
 
     return (
-        <group 
-            ref={group} 
-            position={position} 
-            scale={scale} 
+        <group
+            ref={group}
+            position={position}
+            scale={scale}
             {...restGroupProps}
         >
             <ImagePlane ref={planeA} map={map} position={[0, 0, 3]} rotation={[0, 0, 0]} scale={[7, 7, 1]} debug={debug} />
-            <ShardMirror 
-                ref={shardMirrorRef} 
-                planeRef={planeA} 
-                map={map} 
-                shapePath={shape} 
-                baseRotationZ={baseRotationZ} 
-                position={[0, 0, 0]} 
+            <ShardMirror
+                ref={shardMirrorRef}
+                planeRef={planeA}
+                map={map}
+                shapePath={shape}
+                baseRotationZ={baseRotationZ}
+                position={[0, 0, 0]}
                 animValueRef={animValueRef}
                 onHoverEnter={() => {
                     setHovered(true)
@@ -307,7 +317,14 @@ export default function Shard({
                     }
                 }}
             />
+            {hovered && !isRotating && (
+                <ShardHoverInfo
+                    shardPosition={currentWorldPosition}
+                    title={shard.title}
+                    info={shard.info}
+                />
+            )}
         </group>
     )
 }
- 
+    
