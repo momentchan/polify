@@ -16,7 +16,6 @@ export function getSharedParticleMaterial(initialUniforms: ParticleMaterialUnifo
     vertexShader: INSTANCED_VERTEX_SHADER,
     fragmentShader: INSTANCED_FRAGMENT_SHADER,
     uniforms: uniformsSnapshot,
-    silent: true,
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,

@@ -32,7 +32,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "^0.160.1",
-    "three-custom-shader-material": "^5.4.0",
+    "three-custom-shader-material": "^6.4.0",
     "valtio": "^1.13.2",
     "wouter": "2.11.0",
     "zustand": "^4.5.2"

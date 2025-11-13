@@ -16,7 +16,6 @@ export function getSharedShardMirrorMaterial(initialUniforms: MaterialUniforms):
     vertexShader: shardMirrorVertexShader,
     fragmentShader: shardMirrorFragmentShader,
     uniforms: uniformsSnapshot,
-    silent: true,
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
