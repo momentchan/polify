@@ -2,30 +2,36 @@ import { AdaptiveDpr, CameraControls } from "@react-three/drei";
 import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
 import Scene from "../components/Scene";
+import PortalScene from "../components/Portal/PortalScene";
 import * as THREE from 'three';
+import Effects from "../components/Effects";
 
 export default function App() {
+    const usePortalScene = true; // Set to false to use regular Scene
+    
     return <>
         <LevaWrapper collapsed={true} />
 
         <Canvas
             shadows
-            camera={{
-                fov: 45,
-                near: 0.1,
-                far: 50,
-                position: [0, 0, 5]
-            }}
             gl={{ 
                 preserveDrawingBuffer: true, 
                 outputColorSpace: THREE.SRGBColorSpace,
-                toneMapping: THREE.ACESFilmicToneMapping,
+                toneMapping: usePortalScene ? THREE.CineonToneMapping : THREE.ACESFilmicToneMapping,
+                localClippingEnabled: usePortalScene ? true : false,
             }}
             dpr={[1, 2]}
             performance={{ min: 0.5, max: 1 }}
         >
+            {/* <CameraControls/> */}
             <AdaptiveDpr pixelated />
-            <Scene />
+            {usePortalScene ? (
+                <>
+                <PortalScene />
+                </>
+            ) : (
+                <Scene />
+            )}
         </Canvas>
     </>
 }

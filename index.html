@@ -1,13 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="textures/favicon.png" type="image/png">
-    <title>polify-demo</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal Transition</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    canvas.webgl {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
 </head>
 <body>
-    <div id="root"></div>
+  <canvas class="webgl"></canvas>
+
+  <script type="x-shader/x-vertex" id="vertexShader">
+  precision highp float;
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * modelViewPosition; 
+  }
+</script>
+
+<script type="x-shader/x-fragment" id="fragmentShader">
+  uniform sampler2D map;
+  varying vec2 vUv;
+  
+  void main() {
+    vec4 color = texture2D( map, vUv);
+    gl_FragColor = linearToOutputTexel(color);
+  }
+</script>
+  <!-- <script type="module" src="/src/test.js"></script> -->
+   <div id="root"></div>
     <script type="module" src="./src/index.jsx"></script>
 </body>
 </html>
