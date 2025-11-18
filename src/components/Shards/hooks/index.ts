@@ -4,5 +4,5 @@ export { useMaterialControls, type MaterialBaseControls } from "./useMaterialCon
 export { useFresnelControls } from "./useFresnelControls";
 export { useShardGeometry } from "./useShardGeometry";
 export { useMaterialProperties } from "./useMaterialProperties";
-export { useSharedAnimation, type SharedAnimationValue } from "./useSharedAnimation";
+export { useSharedAnimation, type SharedAnimationValue, type SharedAnimationControls } from "./useSharedAnimation";
 

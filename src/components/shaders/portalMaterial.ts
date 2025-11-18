@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { shaderMaterial } from "@react-three/drei";
-import { extend, ReactThreeFiber } from "@react-three/fiber";
+import { extend } from "@react-three/fiber";
 
 
 // 頂點 shader：幾乎照搬你原本的
@@ -24,6 +24,7 @@ export const portalFragmentShader = /* glsl */ `
 
   void main() {
     vec4 color = texture2D(map, vUv);
+    color.r = 0.2;
     gl_FragColor = linearToOutputTexel(color);
   }
 `;
@@ -40,12 +41,5 @@ export const PortalMaterialImpl = shaderMaterial(
 // 讓 r3f 知道有一個新的 JSX tag <portalMaterialImpl />
 extend({ PortalMaterialImpl });
 
-// TypeScript：把它加進 JSX intrinsic elements
-declare module "@react-three/fiber" {
-  interface ThreeElements {
-    portalMaterialImpl: ReactThreeFiber.Object3DNode<
-      typeof PortalMaterialImpl,
-      typeof PortalMaterialImpl
-    >;
-  }
-}
+// TypeScript: shaderMaterial from drei automatically handles type declarations
+// No manual type declaration needed - drei's shaderMaterial extends ThreeElements automatically

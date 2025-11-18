@@ -3,7 +3,6 @@ import { useFrame } from "@react-three/fiber";
 import { MathUtils } from "three";
 import * as THREE from "three";
 import { useSharedAnimation } from "./hooks";
-import Shards from "./Shards";
 import ShardParticles from "./Particles/ShardParticles";
 
 interface ShardSystemProps {
@@ -19,7 +18,8 @@ export default function ShardSystem({
     position = [0, 0, -6]
 }: ShardSystemProps) {
     // Shared animation value synchronized across all components
-    const animValueRef = useSharedAnimation(animationDuration);
+    // Set autoStart to false to prevent automatic animation
+    const { animValueRef } = useSharedAnimation(animationDuration, false, 0);
     const groupRef = useRef<THREE.Group>(null!);
 
     // Group rotation animation (only for the system group, not shards)
@@ -36,9 +36,9 @@ export default function ShardSystem({
 
     return (
         <>
-            <group position={position}>
+            {/* <group position={position}>
                 <Shards animValueRef={animValueRef} />
-            </group>
+            </group> */}
 
             <group ref={groupRef} position={position}>
                 <ShardParticles shapePath="textures/shape1.svg" count={16} animValueRef={animValueRef} sizeMultiplier={1} />

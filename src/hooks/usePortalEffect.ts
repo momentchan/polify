@@ -1,6 +1,6 @@
 // src/hooks/usePortalEffect.ts
 
-import { MutableRefObject, useRef } from "react";
+import { MutableRefObject, useRef, useEffect } from "react";
 import {
   Group,
   Mesh,
@@ -10,6 +10,7 @@ import {
   Vector2,
   Vector3,
   Texture,
+  LinearFilter,
 } from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 // @ts-ignore
@@ -20,6 +21,7 @@ type PortalEffectParams = {
   otherRootRef: MutableRefObject<Group | null>;
   portalPlaneRef: MutableRefObject<Mesh | null>;
   onUpdatePortalMap: (texture: Texture) => void;
+  resolutionMultiplier?: number; // Quality multiplier (default: 1.5 for better quality)
 };
 
 export function usePortalEffect({
@@ -27,15 +29,49 @@ export function usePortalEffect({
   otherRootRef,
   portalPlaneRef,
   onUpdatePortalMap,
+  resolutionMultiplier = 1.5, // Higher multiplier = better quality but more performance cost
 }: PortalEffectParams) {
   const renderTargetRef = useRef<WebGLRenderTarget | null>(null);
   const otherCameraRef = useRef<PerspectiveCamera | null>(null);
+  const sizeRef = useRef(new Vector2());
 
   const bottomLeftRef = useRef(new Vector3());
   const bottomRightRef = useRef(new Vector3());
   const topLeftRef = useRef(new Vector3());
 
-  const { gl, scene, camera } = useThree();
+  const { gl, scene, camera, size } = useThree();
+
+  // Create or update renderTarget with higher resolution
+  const createOrUpdateRenderTarget = () => {
+    gl.getSize(sizeRef.current);
+    const width = Math.floor(sizeRef.current.x * resolutionMultiplier);
+    const height = Math.floor(sizeRef.current.y * resolutionMultiplier);
+
+    if (!renderTargetRef.current) {
+      // Create new renderTarget with quality settings
+      renderTargetRef.current = new WebGLRenderTarget(width, height, {
+        type: HalfFloatType,
+        minFilter: LinearFilter, // Better quality filtering
+        magFilter: LinearFilter,
+        generateMipmaps: false, // Disable mipmaps for better performance
+        stencilBuffer: false,
+        depthBuffer: true, // Enable depth for proper rendering
+      });
+    } else {
+      // Update existing renderTarget size if needed
+      if (
+        renderTargetRef.current.width !== width ||
+        renderTargetRef.current.height !== height
+      ) {
+        renderTargetRef.current.setSize(width, height);
+      }
+    }
+  };
+
+  // Update renderTarget when size changes
+  useEffect(() => {
+    createOrUpdateRenderTarget();
+  }, [size.width, size.height, resolutionMultiplier]);
 
   useFrame(() => {
     const currentRoot = currentRootRef.current;
@@ -43,12 +79,9 @@ export function usePortalEffect({
     const portalPlane = portalPlaneRef.current;
     if (!currentRoot || !otherRoot || !portalPlane) return;
 
-    // Initialize renderTarget
+    // Ensure renderTarget exists
     if (!renderTargetRef.current) {
-      const rtSize = gl.getSize(new Vector2());
-      renderTargetRef.current = new WebGLRenderTarget(rtSize.x, rtSize.y, {
-        type: HalfFloatType,
-      });
+      createOrUpdateRenderTarget();
     }
 
     // Initialize otherCamera
