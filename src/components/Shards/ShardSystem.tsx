@@ -18,8 +18,9 @@ export default function ShardSystem({
     position = [0, 0, -6]
 }: ShardSystemProps) {
     // Shared animation value synchronized across all components
-    // Set autoStart to false to prevent automatic animation
-    const { animValueRef } = useSharedAnimation(animationDuration, false, 0);
+    // autoStart = true: trigger explosion once at beginning
+    // repeat = 0: play once, then keep final state (value = 1)
+    const { animValueRef } = useSharedAnimation(animationDuration, true, 0);
     const groupRef = useRef<THREE.Group>(null!);
 
     // Group rotation animation (only for the system group, not shards)

@@ -10,29 +10,30 @@ import ShardSystem from "../Shards/ShardSystem";
 import Effects from "../Effects";
 import { useShardShape, useShardGeometry, useExtrudeControls } from "../Shards/hooks";
 
-const portalZPosition = -10; // portal position on Z axis
+const portalZPosition = -5; // portal position on Z axis
+const distanceFromPortal = 3;
 
 // World A: ShardSystem with default settings
-const WorldA: React.FC<{ isCurrent?: boolean }> = ({ isCurrent = false }) => {
+const WorldA: React.FC<{ isCurrent?: boolean; stage: number }> = ({ isCurrent = false, stage }) => {
     // Position: [0, 0, 1] for current world, [0, 0, -1] for other world
-    const centerPosition: [number, number, number] = isCurrent ? [0, 0, 1] : [0, 0, portalZPosition-1];
+    const centerPosition: [number, number, number] = isCurrent ? [0, 0, 1] : [0, 0, portalZPosition-distanceFromPortal];
     
     return <>
-        <Center scale={0.5} position={centerPosition}>
-            <Text3D font="./Pragmatica Black_Regular.json">Stage1</Text3D>
+        <Center scale={0.2} position={centerPosition}>
+            <Text3D font="./Pragmatica Black_Regular.json">Stage{stage}</Text3D>
         </Center>
         <ShardSystem animationDuration={10} position={[0, 0, 0]} />
     </>
 };
 
 // World B: ShardSystem with different settings
-const WorldB: React.FC<{ isCurrent?: boolean }> = ({ isCurrent = false }) => {
+const WorldB: React.FC<{ isCurrent?: boolean; stage: number }> = ({ isCurrent = false, stage }) => {
     // Position: [0, 0, 1] for current world, [0, 0, -1] for other world
-    const centerPosition: [number, number, number] = isCurrent ? [0, 0, 1] : [0, 0, portalZPosition-1];
+    const centerPosition: [number, number, number] = isCurrent ? [0, 0, 1] : [0, 0, portalZPosition-distanceFromPortal];
     
     return <>
-        <Center scale={0.5} position={centerPosition}>
-            <Text3D font="./Pragmatica Black_Regular.json">Stage2</Text3D>
+        <Center scale={0.2} position={centerPosition}>
+            <Text3D font="./Pragmatica Black_Regular.json">Stage{stage}</Text3D>
         </Center>
         <ShardSystem animationDuration={10} position={[0, 0, 0]} />
     </>
@@ -60,10 +61,16 @@ const PortalContent: React.FC = () => {
 
     // 0 = WorldA outside / WorldB inside, 1 = WorldB outside / WorldA inside
     const [mode, setMode] = useState<0 | 1>(0);
+    
+    // Current stage: cycles 1 -> 2 -> 3 -> 4 -> 1...
+    // Other world always shows next stage: current+1 (or 1 if current is 4)
+    const [currentStage, setCurrentStage] = useState(1);
+    
+    // Helper function to get next stage (1->2, 2->3, 3->4, 4->1)
+    const getNextStage = (stage: number) => ((stage % 4) + 1);
 
     // Camera movement settings
     const cameraSpeed = 2.0; // units per second
-    const startZPosition = 2; // starting camera position
     const isMovingRef = useRef(true); // control if camera should move
 
     // Enable portal effect with quality settings
@@ -81,7 +88,7 @@ const PortalContent: React.FC = () => {
     // Initialize camera position
     useEffect(() => {
         const cam = camera as PerspectiveCamera;
-        cam.position.set(0, 0, startZPosition);
+        cam.position.set(0, 0, distanceFromPortal);
         cam.lookAt(0, 0, 0);
         if (controlsRef.current) {
             controlsRef.current.target.set(0, 0, 0);
@@ -94,7 +101,7 @@ const PortalContent: React.FC = () => {
         setMode((m) => (m === 0 ? 1 : 0));
         // Reset camera position
         const cam = camera as PerspectiveCamera;
-        cam.position.set(0, 0, startZPosition);
+        cam.position.set(0, 0, distanceFromPortal);
         cam.lookAt(0, 0, 0);
         if (controlsRef.current) {
             controlsRef.current.target.set(0, 0, 0);
@@ -116,8 +123,11 @@ const PortalContent: React.FC = () => {
                 // Switch worlds
                 setMode((m) => (m === 0 ? 1 : 0));
                 
+                // Increment current stage: 1 -> 2 -> 3 -> 4 -> 1 (cycle)
+                setCurrentStage((s) => getNextStage(s));
+                
                 // Reset camera position
-                cam.position.set(0, 0, startZPosition);
+                cam.position.set(0, 0, distanceFromPortal);
                 cam.lookAt(0, 0, 0);
                 
                 if (controlsRef.current) {
@@ -153,22 +163,71 @@ const PortalContent: React.FC = () => {
 
     return (
         <>
-            {/* current world */}
+            {/* All stage instances always rendered - only visibility changes for smooth switching */}
+            {/* This prevents ShardSystem from re-mounting and re-triggering explosion */}
             <group ref={currentRootRef}>
-                {mode === 0 ? <WorldA isCurrent={true} /> : <WorldB isCurrent={true} />}
+                {/* WorldA instances for all stages */}
+                <group key="worldA-stage1" visible={mode === 0 && currentStage === 1}>
+                    <WorldA isCurrent={true} stage={1} />
+                </group>
+                <group key="worldA-stage2" visible={mode === 1 && currentStage === 2}>
+                    <WorldA isCurrent={true} stage={2} />
+                </group>
+                <group key="worldA-stage3" visible={mode === 0 && currentStage === 3}>
+                    <WorldA isCurrent={true} stage={3} />
+                </group>
+                <group key="worldA-stage4" visible={mode === 1 && currentStage === 4}>
+                    <WorldA isCurrent={true} stage={4} />
+                </group>
+                {/* WorldB instances for all stages */}
+                <group key="worldB-stage1" visible={mode === 1 && currentStage === 1}>
+                    <WorldB isCurrent={true} stage={1} />
+                </group>
+                <group key="worldB-stage2" visible={mode === 0 && currentStage === 2}>
+                    <WorldB isCurrent={true} stage={2} />
+                </group>
+                <group key="worldB-stage3" visible={mode === 1 && currentStage === 3}>
+                    <WorldB isCurrent={true} stage={3} />
+                </group>
+                <group key="worldB-stage4" visible={mode === 0 && currentStage === 4}>
+                    <WorldB isCurrent={true} stage={4} />
+                </group>
             </group>
 
-            {/* other world (doesn't need visible, hook will temporarily enable it) */}
+            {/* Other world instances - always rendered, only visibility changes */}
             <group ref={otherRootRef}>
-                {mode === 0 ? <WorldB isCurrent={false} /> : <WorldA isCurrent={false} />}
+                <group key="other-worldB-stage2" visible={mode === 0 && currentStage === 1}>
+                    <WorldB isCurrent={false} stage={2} />
+                </group>
+                <group key="other-worldA-stage3" visible={mode === 0 && currentStage === 2}>
+                    <WorldA isCurrent={false} stage={3} />
+                </group>
+                <group key="other-worldB-stage4" visible={mode === 0 && currentStage === 3}>
+                    <WorldB isCurrent={false} stage={4} />
+                </group>
+                <group key="other-worldA-stage1" visible={mode === 0 && currentStage === 4}>
+                    <WorldA isCurrent={false} stage={1} />
+                </group>
+                <group key="other-worldA-stage2-mode1" visible={mode === 1 && currentStage === 1}>
+                    <WorldA isCurrent={false} stage={2} />
+                </group>
+                <group key="other-worldB-stage3-mode1" visible={mode === 1 && currentStage === 2}>
+                    <WorldB isCurrent={false} stage={3} />
+                </group>
+                <group key="other-worldA-stage4-mode1" visible={mode === 1 && currentStage === 3}>
+                    <WorldA isCurrent={false} stage={4} />
+                </group>
+                <group key="other-worldB-stage1-mode1" visible={mode === 1 && currentStage === 4}>
+                    <WorldB isCurrent={false} stage={1} />
+                </group>
             </group>
 
             {/* portal plane with shard geometry */}
             <mesh
                 ref={portalPlaneRef}
-                position={[0, 0, -10]}
+                position={[0, 0, portalZPosition]}
                 onClick={handleSwitch}
-                scale={[1, 1, 1]} // Scale to match original plane size
+                scale={[0.5, 0.5, 0.5]} // Scale to match original plane size
             >
                 <primitive object={portalGeometry} />
                 {/* @ts-expect-error - portalMaterialImpl type definition issue with shaderMaterial */}
