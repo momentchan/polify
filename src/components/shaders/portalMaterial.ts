@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { shaderMaterial } from "@react-three/drei";
-import { extend, type ThreeElement } from "@react-three/fiber";
+import { extend, ReactThreeFiber } from "@react-three/fiber";
 
 
 // 頂點 shader：幾乎照搬你原本的
@@ -21,6 +21,7 @@ export const portalFragmentShader = /* glsl */ `
   uniform sampler2D map;
   varying vec2 vUv;
 
+
   void main() {
     vec4 color = texture2D(map, vUv);
     gl_FragColor = linearToOutputTexel(color);
@@ -40,10 +41,11 @@ export const PortalMaterialImpl = shaderMaterial(
 extend({ PortalMaterialImpl });
 
 // TypeScript：把它加進 JSX intrinsic elements
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      portalMaterialImpl: ThreeElement<typeof PortalMaterialImpl>;
-    }
+declare module "@react-three/fiber" {
+  interface ThreeElements {
+    portalMaterialImpl: ReactThreeFiber.Object3DNode<
+      typeof PortalMaterialImpl,
+      typeof PortalMaterialImpl
+    >;
   }
 }

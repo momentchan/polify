@@ -5,6 +5,8 @@ import Scene from "../components/Scene";
 import PortalScene from "../components/Portal/PortalScene";
 import * as THREE from 'three';
 import Effects from "../components/Effects";
+// Import portalMaterial to ensure extend() is called before Canvas initializes
+import "../components/shaders/portalMaterial";
 
 export default function App() {
     const usePortalScene = true; // Set to false to use regular Scene
