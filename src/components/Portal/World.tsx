@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Group, Object3D, Mesh, MeshStandardMaterial, Texture } from "three";
+import CSM from "three-custom-shader-material/vanilla";
+import * as THREE from "three";
 import { PortalMaterialImpl } from "../shaders/portalMaterial";
 
 export type WorldAPI = {
@@ -8,7 +10,7 @@ export type WorldAPI = {
   portalPlane?: Mesh | null;
   portalWorldStart?: Object3D | null;
   portalWorldEnd?: Object3D | null;
-  portalMaterial?: InstanceType<typeof PortalMaterialImpl> | null;
+  portalMaterial?: CSM<typeof THREE.MeshPhysicalMaterial> | null;
 };
 
 type WorldProps = {
@@ -38,18 +40,24 @@ const World: React.FC<WorldProps> = ({ scene, name, visible = true, onReady }) =
     const portalWorldStart = node.getObjectByName("portalWorldStart") || null;
     const portalWorldEnd = node.getObjectByName("portalWorldEnd") || null;
 
-    let portalMaterial: InstanceType<typeof PortalMaterialImpl> | null = null;
+    let portalMaterial: CSM<typeof THREE.MeshPhysicalMaterial> | null = null;
 
     if (portalPlaneObj) {
       const originalMat = portalPlaneObj.material as MeshStandardMaterial;
       const originalMap = (originalMat?.map ?? null) as Texture | null;
 
-      portalMaterial = new PortalMaterialImpl();
-      if (originalMap) {
-        portalMaterial.map = originalMap;
+      // PortalMaterialImpl is already an instance, not a constructor
+      portalMaterial = PortalMaterialImpl;
+      if (originalMap && portalMaterial) {
+        const uniforms = portalMaterial.uniforms as any;
+        if (uniforms.map) {
+          uniforms.map.value = originalMap;
+        }
       }
 
-      portalPlaneObj.material = portalMaterial;
+      if (portalMaterial) {
+        portalPlaneObj.material = portalMaterial;
+      }
     }
 
     onReady?.({

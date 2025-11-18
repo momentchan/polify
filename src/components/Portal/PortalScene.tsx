@@ -1,41 +1,70 @@
 // src/components/PortalScene.tsx
 
-import React, { useRef, useState, useEffect } from "react";
-import { Group, Mesh, Texture, PerspectiveCamera } from "three";
+import React, { useRef, useState, useEffect, useMemo } from "react";
+import { Group, Mesh, Texture, PerspectiveCamera, MathUtils } from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Center, OrbitControls, Text3D } from "@react-three/drei";
+import { OrbitControls, useTexture } from "@react-three/drei";
+import { useControls } from "leva";
 import { usePortalEffect } from "../../hooks/usePortalEffect";
-import { PortalMaterialImpl } from "../shaders/portalMaterial";
+import { getPortalMaterial } from "../shaders/portalMaterial";
 import ShardSystem from "../Shards/ShardSystem";
 import Effects from "../Effects";
-import { useShardShape, useShardGeometry, useExtrudeControls } from "../Shards/hooks";
+import { useShardShape, useShardGeometry, useExtrudeControls, useMaterialControls, useMaterialProperties, useFresnelControls } from "../Shards/hooks";
 
-const portalZPosition = -5; // portal position on Z axis
-const distanceFromPortal = 3;
+const portalZPosition = -3; // portal position on Z axis
+const distanceFromPortal = 0.5;
+const portalScale = 0.1;
+
+// Image plane component for stage display
+const StageImage: React.FC<{ stage: number }> = ({ stage }) => {
+    const imagePath = `/textures/img${stage}.avif`;
+    const texture = useTexture(imagePath);
+    
+    // Calculate aspect ratio to maintain image proportions
+    const aspectRatio = useMemo(() => {
+        if (texture && (texture as any).image) {
+            const img = (texture as any).image as HTMLImageElement;
+            if (img.width && img.height) {
+                return img.width / img.height;
+            }
+        }
+        return 1;
+    }, [texture]);
+    
+    const width = 2; // Base width
+    const height = width / aspectRatio;
+    
+    return (
+        <mesh>
+            <planeGeometry args={[width, height]} />
+            <meshBasicMaterial map={texture} transparent />
+        </mesh>
+    );
+};
 
 // World A: ShardSystem with default settings
 const WorldA: React.FC<{ isCurrent?: boolean; stage: number }> = ({ isCurrent = false, stage }) => {
     // Position: [0, 0, 1] for current world, [0, 0, -1] for other world
-    const centerPosition: [number, number, number] = isCurrent ? [0, 0, 1] : [0, 0, portalZPosition-distanceFromPortal];
+    const centerPosition: [number, number, number] = isCurrent ? [0, 0, 0] : [0, 0, portalZPosition-distanceFromPortal];
     
     return <>
-        <Center scale={0.2} position={centerPosition}>
-            <Text3D font="./Pragmatica Black_Regular.json">Stage{stage}</Text3D>
-        </Center>
-        <ShardSystem animationDuration={10} position={[0, 0, 0]} />
+        <group position={centerPosition} scale={[0.2, 0.2, 0.2]}>
+            <StageImage stage={stage} />
+        </group>
+        <ShardSystem animationDuration={10} position={centerPosition} />
     </>
 };
 
 // World B: ShardSystem with different settings
 const WorldB: React.FC<{ isCurrent?: boolean; stage: number }> = ({ isCurrent = false, stage }) => {
     // Position: [0, 0, 1] for current world, [0, 0, -1] for other world
-    const centerPosition: [number, number, number] = isCurrent ? [0, 0, 1] : [0, 0, portalZPosition-distanceFromPortal];
+    const centerPosition: [number, number, number] = isCurrent ? [0, 0, 0] : [0, 0, portalZPosition-distanceFromPortal];
     
     return <>
-        <Center scale={0.2} position={centerPosition}>
-            <Text3D font="./Pragmatica Black_Regular.json">Stage{stage}</Text3D>
-        </Center>
-        <ShardSystem animationDuration={10} position={[0, 0, 0]} />
+        <group position={centerPosition} scale={[0.2, 0.2, 0.2]}>
+            <StageImage stage={stage} />
+        </group>
+        <ShardSystem animationDuration={10} position={centerPosition} />
     </>
 };
 
@@ -58,6 +87,58 @@ const PortalContent: React.FC = () => {
 
     // portal texture
     const [portalMap, setPortalMap] = useState<Texture | null>(null);
+    
+    // Load scratch texture
+    const scratchTex = useTexture('/textures/scratch.jpg');
+    
+    // Fresnel controls
+    const fresnelConfig = useFresnelControls("Portal");
+    
+    // Scratch blend control
+    const { scratchBlend } = useControls('Portal.Material.Texture', {
+        scratchBlend: { value: 0.3, min: 0, max: 1, step: 0.01 },
+    }, { collapsed: true });
+    
+    // Create CSM material with MeshPhysicalMaterial base (same as shard material)
+    const portalMaterial = useMemo(() => {
+        return getPortalMaterial(
+            portalMap,
+            scratchTex,
+            {
+                power: fresnelConfig.power,
+                intensity: fresnelConfig.enabled ? fresnelConfig.intensity : 0.0,
+                color: fresnelConfig.color,
+            },
+            scratchBlend
+        );
+    }, [portalMap, scratchTex, fresnelConfig, scratchBlend]);
+
+    // Material controls (same settings as shard material)
+    const materialControls = useMaterialControls("Portal");
+
+    // Apply material properties from controls
+    // CSM material extends MeshPhysicalMaterial, so we can use it directly
+    useMaterialProperties(portalMaterial, materialControls);
+    
+    // Update fresnel uniforms when controls change
+    useEffect(() => {
+        if (portalMaterial) {
+            const uniforms = portalMaterial.uniforms as any;
+            if (uniforms.uFresnelPower) uniforms.uFresnelPower.value = fresnelConfig.power;
+            if (uniforms.uFresnelIntensity) uniforms.uFresnelIntensity.value = fresnelConfig.enabled ? fresnelConfig.intensity : 0.0;
+            if (uniforms.uFresnelColor) uniforms.uFresnelColor.value.set(fresnelConfig.color);
+        }
+    }, [portalMaterial, fresnelConfig]);
+    
+    // Update scratch blend when control changes
+    useEffect(() => {
+        if (portalMaterial) {
+            const uniforms = portalMaterial.uniforms as any;
+            if (uniforms.uScratchBlend) {
+                uniforms.uScratchBlend.value = scratchBlend;
+            }
+        }
+    }, [portalMaterial, scratchBlend]);
 
     // 0 = WorldA outside / WorldB inside, 1 = WorldB outside / WorldA inside
     const [mode, setMode] = useState<0 | 1>(0);
@@ -70,8 +151,23 @@ const PortalContent: React.FC = () => {
     const getNextStage = (stage: number) => ((stage % 4) + 1);
 
     // Camera movement settings
-    const cameraSpeed = 2.0; // units per second
-    const isMovingRef = useRef(true); // control if camera should move
+    const scrollSpeed = 0.2; // units per scroll event
+    const lerpSpeed = 0.1; // interpolation speed (0-1, higher = faster)
+    const targetZRef = useRef(distanceFromPortal); // target Z position for smooth movement
+    const textUpdatedRef = useRef(false); // track if text has been updated for current approach
+    
+    // Use refs to track state for synchronous updates
+    const modeRef = useRef(mode);
+    const stageRef = useRef(currentStage);
+    
+    // Sync refs with state
+    useEffect(() => {
+        modeRef.current = mode;
+    }, [mode]);
+    
+    useEffect(() => {
+        stageRef.current = currentStage;
+    }, [currentStage]);
 
     // Enable portal effect with quality settings
     // resolutionMultiplier: 1.0 = screen resolution, 1.5 = 1.5x (default), 2.0 = 2x (high quality)
@@ -89,6 +185,7 @@ const PortalContent: React.FC = () => {
     useEffect(() => {
         const cam = camera as PerspectiveCamera;
         cam.position.set(0, 0, distanceFromPortal);
+        targetZRef.current = distanceFromPortal;
         cam.lookAt(0, 0, 0);
         if (controlsRef.current) {
             controlsRef.current.target.set(0, 0, 0);
@@ -99,41 +196,104 @@ const PortalContent: React.FC = () => {
     // Click portal to switch inner/outer worlds (manual override)
     const handleSwitch = () => {
         setMode((m) => (m === 0 ? 1 : 0));
-        // Reset camera position
+        // Reset camera position and target
         const cam = camera as PerspectiveCamera;
         cam.position.set(0, 0, distanceFromPortal);
+        targetZRef.current = distanceFromPortal;
         cam.lookAt(0, 0, 0);
         if (controlsRef.current) {
             controlsRef.current.target.set(0, 0, 0);
             controlsRef.current.update();
         }
-        isMovingRef.current = true;
     };
 
+    // Handle mouse wheel scroll for camera movement
+    useEffect(() => {
+        const handleWheel = (event: WheelEvent) => {
+            // Only move forward on scroll down (positive deltaY)
+            if (event.deltaY > 0) {
+                // Update target position instead of directly moving camera
+                targetZRef.current -= scrollSpeed;
+
+                console.log('targetZRef', targetZRef.current);
+                // Prevent default scrolling behavior
+                event.preventDefault();
+            }
+        };
+
+        // Add event listener to window
+        window.addEventListener('wheel', handleWheel, { passive: false });
+
+        // Cleanup
+        return () => {
+            window.removeEventListener('wheel', handleWheel);
+        };
+    }, []);
+
+
     // Camera movement and portal detection
-    useFrame((_, delta) => {
+    useFrame(() => {
         const cam = camera as PerspectiveCamera;
 
-        // Move camera forward continuously
-        if (isMovingRef.current) {
-            cam.position.z -= cameraSpeed * delta;
+        // Smoothly interpolate camera position towards target
+        cam.position.z = MathUtils.lerp(cam.position.z, targetZRef.current, lerpSpeed);
+
+        // Update camera position uniform for fresnel calculation
+        if (portalMaterial) {
+            const uniforms = portalMaterial.uniforms as any;
+            if (uniforms.uCamPos) {
+                uniforms.uCamPos.value.copy(cam.position);
+            }
             
-            // Check if camera reached portal
-            if (cam.position.z <= portalZPosition) {
-                // Switch worlds
-                setMode((m) => (m === 0 ? 1 : 0));
-                
-                // Increment current stage: 1 -> 2 -> 3 -> 4 -> 1 (cycle)
-                setCurrentStage((s) => getNextStage(s));
-                
-                // Reset camera position
-                cam.position.set(0, 0, distanceFromPortal);
-                cam.lookAt(0, 0, 0);
-                
-                if (controlsRef.current) {
-                    controlsRef.current.target.set(0, 0, 0);
-                    controlsRef.current.update();
+            // Update transition ratio based on camera distance to portal
+            // Calculate total distance from start position to portal
+            const startZ = distanceFromPortal; // Starting position
+            const portalZ = portalZPosition; // Portal position
+            const totalDistance = Math.abs(startZ - portalZ);
+            
+            // Current distance from portal (clamped to valid range)
+            const currentDistanceFromPortal = Math.max(0, Math.min(totalDistance, cam.position.z - portalZ));
+            
+            // Transition ratio: 0.0 = at start, 1.0 = at portal
+            const transitionRatio = 1.0 - (currentDistanceFromPortal / totalDistance);
+            
+            if (uniforms.uTransitionRatio) {
+                uniforms.uTransitionRatio.value = Math.max(0.0, Math.min(1.0, transitionRatio));
+            }
+        }
+
+        // Check if camera reached portal
+        if (cam.position.z <= portalZPosition + 1e-6) {
+            // Switch worlds and update stage atomically using refs
+            const currentMode = modeRef.current;
+            const currentStageValue = stageRef.current;
+            
+            // Update both mode and stage synchronously
+            const newMode = currentMode === 0 ? 1 : 0;
+            const newStage = getNextStage(currentStageValue);
+            
+            setMode(newMode);
+            setCurrentStage(newStage);
+            
+            // Reset text update flag for next cycle
+            textUpdatedRef.current = false;
+            
+            // Reset transition ratio when camera resets
+            if (portalMaterial) {
+                const uniforms = portalMaterial.uniforms as any;
+                if (uniforms.uTransitionRatio) {
+                    uniforms.uTransitionRatio.value = 0.0;
                 }
+            }
+            
+            // Reset camera position and target
+            cam.position.set(0, 0, distanceFromPortal);
+            targetZRef.current = distanceFromPortal;
+            cam.lookAt(0, 0, 0);
+            
+            if (controlsRef.current) {
+                controlsRef.current.target.set(0, 0, 0);
+                controlsRef.current.update();
             }
         }
 
@@ -152,14 +312,15 @@ const PortalContent: React.FC = () => {
 
     // Update portal material texture when portalMap changes
     useEffect(() => {
-        if (portalPlaneRef.current && portalMap) {
-            const material = portalPlaneRef.current.material as InstanceType<typeof PortalMaterialImpl>;
-            if (material && material.map !== portalMap) {
-                material.map = portalMap;
-                material.needsUpdate = true;
+        if (portalMap && portalMaterial) {
+            const uniforms = portalMaterial.uniforms as any;
+            if (uniforms.map && uniforms.map.value !== portalMap) {
+                uniforms.map.value = portalMap;
+                portalMaterial.needsUpdate = true;
             }
         }
-    }, [portalMap]);
+    }, [portalMap, portalMaterial]);
+
 
     return (
         <>
@@ -227,11 +388,10 @@ const PortalContent: React.FC = () => {
                 ref={portalPlaneRef}
                 position={[0, 0, portalZPosition]}
                 onClick={handleSwitch}
-                scale={[0.5, 0.5, 0.5]} // Scale to match original plane size
+                scale={[portalScale, portalScale, portalScale]}
+                material={portalMaterial}
             >
                 <primitive object={portalGeometry} />
-                {/* @ts-expect-error - portalMaterialImpl type definition issue with shaderMaterial */}
-                <portalMaterialImpl />
             </mesh>
 
             {/* Add some lighting */}
