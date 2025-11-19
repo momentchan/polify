@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useMemo, useRef, useState, useEffect } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import Shard from "./Shard";
 import type { ShardDefinition } from "./types";
@@ -21,6 +21,11 @@ interface ShardsProps {
 export default function Shards({ animValueRef }: ShardsProps) {
     const shards = useMemo(() => createShardInstances(SHARD_DATABASE), []);
     const groupRef = useRef<THREE.Group>(null!);
+    const { camera } = useThree();
+    
+    // Camera movement state
+    const originalCameraZ = useRef<number | null>(null);
+    const targetCameraZ = useRef<number>(0);
     
     // Store original distances from center for each shard
     const originalDistances = useMemo(() => {
@@ -35,6 +40,24 @@ export default function Shards({ animValueRef }: ShardsProps) {
     // Track selected shard (useState to trigger re-render)
     const [selectedShardId, setSelectedShardId] = useState<string | null>(null);
     const CLOSER_DISTANCE_OFFSET = 1.5; // Distance to move closer when selected
+
+    // Store original camera Z position on mount
+    useEffect(() => {
+        if (originalCameraZ.current === null) {
+            originalCameraZ.current = camera.position.z;
+            targetCameraZ.current = camera.position.z;
+        }
+    }, [camera]);
+
+    // Update target camera position based on selection
+    useEffect(() => {
+        if (originalCameraZ.current !== null) {
+            // Move forward 5 units when selected, back to original when deselected
+            targetCameraZ.current = selectedShardId !== null
+                ? originalCameraZ.current - 1
+                : originalCameraZ.current;
+        }
+    }, [selectedShardId]);
     
     // Target rotation quaternion for centering clicked shard
     const targetQuaternion = useRef<THREE.Quaternion>(new THREE.Quaternion());
@@ -68,14 +91,30 @@ export default function Shards({ animValueRef }: ShardsProps) {
         setIsRotatingToTarget(true);
     };
 
+    // Handle going back: deselect shard
+    const handleShardBack = () => {
+        setSelectedShardId(null);
+        // Reset rotation to original position
+    };
+
     // Rotation progress tracking for easing
     const rotationProgress = useRef<number>(0);
     const rotationDuration = useRef<number>(0);
     const startQuaternion = useRef<THREE.Quaternion>(new THREE.Quaternion());
 
-    // Group rotation animation
+    // Group rotation animation and camera movement
     useFrame((_, delta) => {
         if (!groupRef.current || !animValueRef?.current) return;
+        
+        // Animate camera forward/backward based on selection
+        if (originalCameraZ.current !== null) {
+            const cameraLerpFactor = selectedShardId !== null ? 0.2 : 0.5; // Smooth camera movement
+            camera.position.z = THREE.MathUtils.lerp(
+                camera.position.z,
+                targetCameraZ.current,
+                cameraLerpFactor
+            );
+        }
         
         // If rotating to target, smoothly interpolate with ease-in-out
         if (isRotatingToTarget) {
@@ -132,6 +171,7 @@ export default function Shards({ animValueRef }: ShardsProps) {
                         debug={false}
                         animValueRef={animValueRef}
                         onShardClick={() => handleShardClick(shard.id, shard.position)}
+                        onShardBack={handleShardBack}
                         isSelected={isSelected}
                         originalDistance={originalDistance}
                         closerDistanceOffset={CLOSER_DISTANCE_OFFSET}

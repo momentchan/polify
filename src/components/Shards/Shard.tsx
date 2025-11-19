@@ -38,6 +38,7 @@ type ShardProps = ThreeElements['group'] & {
     debug?: boolean,
     animValueRef?: React.RefObject<SharedAnimationValue>,
     onShardClick?: () => void,
+    onShardBack?: () => void,
     isSelected?: boolean,
     originalDistance?: number,
     closerDistanceOffset?: number,
@@ -50,6 +51,7 @@ export default function Shard({
     debug = false,
     animValueRef,
     onShardClick,
+    onShardBack,
     isSelected = false,
     originalDistance = 0,
     closerDistanceOffset = 0.3,
@@ -67,9 +69,6 @@ export default function Shard({
     const group = useRef<THREE.Group>(null)
     const shardMirrorRef = useRef<THREE.Group>(null)
     const cameraCurrentQuaternion = useRef(new THREE.Quaternion())
-    const mouseTargetQuaternion = useRef(new THREE.Quaternion())
-    const mouseCurrentQuaternion = useRef(new THREE.Quaternion())
-    const { pointer } = useThree()
     const [hovered, setHovered] = useState(false)
     const [currentWorldPosition, setCurrentWorldPosition] = useState<[number, number, number]>([0, 0, 0])
     
@@ -226,18 +225,9 @@ export default function Shard({
         group.current.getWorldQuaternion(worldQuaternion)
 
         // Calculate direction from shard to camera in world space
+        // ImagePlane rotation - keep this in Shard
         const direction = new THREE.Vector3()
         direction.subVectors(camera.position, worldPosition).normalize()
-
-        // When hovered, face camera directly using only X and Y rotation (no Z-axis rotation)
-        // When not hovered, apply camera offset rotation
-        // Apply camera offset rotation when not hovered
-        if (!hovered) {
-            const offsetQuaternion = new THREE.Quaternion().setFromEuler(
-                new THREE.Euler(cameraOffset[0], cameraOffset[1], cameraOffset[2])
-            )
-            direction.applyQuaternion(offsetQuaternion)
-        }
         
         // Calculate pitch (X rotation) and yaw (Y rotation) from direction
         // Avoid z-axis rotation by only using pitch and yaw
@@ -266,23 +256,6 @@ export default function Shard({
         // Apply parent rotation inverse to get local quaternion
         const localQuaternion = inverseParentQuaternion.clone().multiply(cameraCurrentQuaternion.current)
         group.current.quaternion.copy(localQuaternion)
-
-        // 2. Mouse offset rotation (smooth) - applied only to ShardMirrorWorld
-        // Reduce mouse offset when hovered to allow direct camera facing
-        if (shardMirrorRef.current) {
-            const offsetAmount = hovered ? 0.1 : 0.5 // reduce offset when hovered
-            const offsetRotation = new THREE.Euler(
-                pointer.y * offsetAmount, // pitch offset
-                pointer.x * offsetAmount, // yaw offset
-                0
-            )
-            mouseTargetQuaternion.current.setFromEuler(offsetRotation)
-            
-            // Smooth interpolation toward target mouse rotation
-            const mouseLerpFactor = hovered ? 0.4 : 0.2 // faster response when hovered
-            mouseCurrentQuaternion.current.slerp(mouseTargetQuaternion.current, mouseLerpFactor)
-            shardMirrorRef.current.quaternion.copy(mouseCurrentQuaternion.current)
-        }
     }, 1)
 
 
@@ -293,13 +266,16 @@ export default function Shard({
             scale={scale}
             {...restGroupProps}
         >
-            <ImagePlane ref={planeA} map={map} position={[0, 0, 3]} rotation={[0, 0, 0]} scale={[7, 7, 1]} debug={debug} />
+            {/* <ImagePlane ref={planeA} map={map} position={[0, 0, 3]} rotation={[0, 0, 0]} scale={[7, 7, 1]} debug={debug} /> */}
             <ShardMirror
                 ref={shardMirrorRef}
                 planeRef={planeA}
                 map={map}
+                isSelected={isSelected}
                 shapePath={shape}
                 baseRotationZ={baseRotationZ}
+                cameraOffset={cameraOffset}
+                hovered={hovered}
                 position={[0, 0, 0]}
                 animValueRef={animValueRef}
                 onHoverEnter={() => {
@@ -316,14 +292,15 @@ export default function Shard({
                         onShardClick()
                     }
                 }}
+                onBack={onShardBack}
             />
-            {hovered && !isRotating && (
+            {/* {hovered && !isRotating && (
                 <ShardHoverInfo
                     shardPosition={currentWorldPosition}
                     title={shard.title}
                     info={shard.info}
                 />
-            )}
+            )} */}
         </group>
     )
 }

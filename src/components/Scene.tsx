@@ -14,7 +14,7 @@ export default function Scene() {
             <directionalLight position={[10, 10, 10]} intensity={10} />
             {/* <CameraControls maxDistance={30} makeDefault /> */}
 
-            <BackgroundDrop position={[0, 0, -30]} scale={[30, 30, 30]} />
+            {/* <BackgroundDrop position={[0, 0, -30]} scale={[30, 30, 30]} /> */}
             <EnvironmentSetup />
 
             <ShardSystem animationDuration={3} position={[0, 0, -5]} />

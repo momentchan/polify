@@ -8,7 +8,7 @@ export const ImagePlane = forwardRef<THREE.Group, GroupProps & { map: THREE.Text
     function ImagePlane({ map, debug, children, ...groupProps }, ref) {
         return (
             <group ref={ref} {...groupProps}>
-                <mesh visible={debug}>
+                <mesh visible={true}>
                     <planeGeometry args={[1, 1]} />
                     <meshBasicMaterial map={map} />
                 </mesh>
