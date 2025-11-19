@@ -21,7 +21,7 @@ export default function App() {
                 outputColorSpace: THREE.SRGBColorSpace,
                 toneMapping: THREE.ACESFilmicToneMapping,
             }}
-            dpr={[1, 2]}
+            dpr={[1, 1]}
             performance={{ min: 0.5, max: 1 }}
         >
             <AdaptiveDpr pixelated />

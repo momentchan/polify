@@ -19,6 +19,7 @@ export function getSharedShardMirrorMaterial(initialUniforms: MaterialUniforms):
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
+    blending: THREE.NormalBlending,
   })
 
   return sharedMaterial

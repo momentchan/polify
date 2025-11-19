@@ -273,7 +273,7 @@ export default function Shard({
                 map={map}
                 isSelected={isSelected}
                 shapePath={shape}
-                baseRotationZ={baseRotationZ}
+                baseRotationZ={0}
                 cameraOffset={cameraOffset}
                 hovered={hovered}
                 position={[0, 0, 0]}
@@ -294,13 +294,13 @@ export default function Shard({
                 }}
                 onBack={onShardBack}
             />
-            {/* {hovered && !isRotating && (
+            {hovered && !isRotating && (
                 <ShardHoverInfo
                     shardPosition={currentWorldPosition}
                     title={shard.title}
                     info={shard.info}
                 />
-            )} */}
+            )}
         </group>
     )
 }

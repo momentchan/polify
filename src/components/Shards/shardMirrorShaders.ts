@@ -89,10 +89,12 @@ export const shardMirrorFragmentShader = /* glsl */`
     } else {
       col = texture2D(uMap, uv);
     }
+
+    col.rgb = vec3(.0, .0, .0);
     
     float alpha = denomFade * edgeFade * col.a;
 
-    col *= edgeFade;
+    // col *= edgeFade;
     col.rgb += fresnelColor;
 
     vec4 scratch = texture2D(uScratchTex, vUv);
@@ -105,6 +107,6 @@ export const shardMirrorFragmentShader = /* glsl */`
     // Clamp color to prevent HDR overflow that causes bloom flickering
     col.rgb = clamp(col.rgb, vec3(0.0), vec3(65504.));
     
-    csm_DiffuseColor = vec4(col.rgb, 1.0);
+    csm_DiffuseColor = vec4(col.rgb, 0.2);
   }
 `
